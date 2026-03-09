@@ -1,0 +1,10 @@
+{
+  "ownerId": "kn794dttk9kvhr88383mrqysr4h82jkja",
+  "slug": "smart-model-switcher-v3",
+  "version": "3.0.0",
+  "publishedAt": 1773139200000,
+  "author": "davidme6",
+  "license": "MIT",
+  "tags": ["model-switching", "multi-provider", "optimization", "runtime"],
+  "changelog": "V3: Universal multi-provider support (Bailian/MiniMax/GLM/Kimi), API key validation, plan detection, cost optimization, 50+ models supported"
+}
