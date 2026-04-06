@@ -84,16 +84,25 @@
   - 角色隔离验证：小雨不知道老爸存在
   - Jarvis 能综合分析所有关系，输出数据驱动的报告
 
-### 🔜 下一步（W7）— 推演引擎
-
-**推演引擎（类 git branch）**
+**W7：推演引擎（✅ 2026-04-06 通过）**
 - `src/simulation/engine.py` — 核心推演引擎
-  - 从当前对话状态创建推演分支
-  - 每个分支独立运行，互不影响
-  - 支持快照（TimelineSnapshot）
-  - 支持回退到任意节点
-- `src/simulation/branch_manager.py` — 分支管理器
+  - `take_snapshot()` — 状态快照
+  - `create_branch()` — 从当前状态创建推演分支
+  - `chat_in_branch()` — 分支内独立对话（不影响主线）
+  - `compare_branches()` — Jarvis 对比多方案
+  - `merge_branch()` / `abandon_branch()` — 合并/放弃
+  - `rollback_to_snapshot()` — 回退到任意节点
 - `test_simulation.py` — 推演引擎测试脚本
+- **验证结果**：分支创建、独立对话、Jarvis对比分析、合并放弃、主线保持独立全部通过
+- **注意**：llm_client.py 已加 timeout=60s + max_retries=3（解决代理超时问题）
+
+### 🔜 下一步（W8）— 三库迁移
+
+**PostgreSQL + Neo4j + ChromaDB**
+- `src/database/pg.py` — PostgreSQL（结构化数据：用户、角色、配置）
+- `src/database/graph.py` — Neo4j（关系图谱：人与人之间的网络）
+- `src/database/vector.py` — ChromaDB（向量化聊天记忆，语义检索）
+- 替换现有 JSON 存储层，接口保持不变（对上层透明）
 
 ---
 
@@ -103,7 +112,8 @@
 ✅ W1-2   数据结构设计
 ✅ W3-4   单Agent验证（qwen3.5-plus 跑通）
 ✅ W5-6   多角色独立Agent系统 + Jarvis元Agent
-🔜 W7     推演引擎（分支、快照、回退）
+✅ W7     推演引擎（分支、快照、回退）
+🔜 W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
    W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
    W9     API层（REST + WebSocket）
    W10+   前端（Qwen负责，React + TypeScript + React Flow）
