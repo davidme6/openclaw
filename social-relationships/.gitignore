@@ -5,3 +5,4 @@ __pycache__/
 data/roles/*.json
 data/conversations/*.json
 data/timelines/*.json
+data/chroma/
