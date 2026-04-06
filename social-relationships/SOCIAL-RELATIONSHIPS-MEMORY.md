@@ -46,7 +46,7 @@
 
 - **私有仓库**：`davidme6/Claude-code`（私有，防止项目泄露）
 - **分支**：`main`
-- **项目路径**：`social-relationships/`
+- **项目路径**：`projects/social-relationships/`（已重新整理）
 
 ---
 
@@ -75,12 +75,25 @@
   - 用户"你最近有没有觉得我有点冷落你" → 小雨"（稍微愣了一下，眼神里闪过一丝被说中的慌乱...）"
 - **结论：角色人设、情感表达完全自然，核心验证通过，可以进入下一阶段**
 
-### 🔜 下一步（W5-6）— 下次对话继续
+**W5-6：多角色独立Agent系统 + Jarvis（✅ 2026-04-06 通过）**
+- `src/agents/agent_factory.py` — AgentFactory，统一创建管理角色实例
+- `src/agents/jarvis.py` — Jarvis 元Agent，只读所有关系状态，综合分析输出
+- `test_multi_agent.py` — 多角色测试脚本
+- **验证结果**：
+  - 小雨（恋人）、老爸（父母）独立运行，风格完全不同
+  - 角色隔离验证：小雨不知道老爸存在
+  - Jarvis 能综合分析所有关系，输出数据驱动的报告
 
-**多角色独立 Agent 系统**
-- `src/agents/agent_factory.py` — AgentFactory，统一创建和管理角色实例
-- 多个角色同时存在、完全隔离（各自独立记忆、独立会话）
-- `src/agents/jarvis.py` — Jarvis 元 Agent（只读所有角色状态，输出分析建议）
+### 🔜 下一步（W7）— 推演引擎
+
+**推演引擎（类 git branch）**
+- `src/simulation/engine.py` — 核心推演引擎
+  - 从当前对话状态创建推演分支
+  - 每个分支独立运行，互不影响
+  - 支持快照（TimelineSnapshot）
+  - 支持回退到任意节点
+- `src/simulation/branch_manager.py` — 分支管理器
+- `test_simulation.py` — 推演引擎测试脚本
 
 ---
 
@@ -89,8 +102,8 @@
 ```
 ✅ W1-2   数据结构设计
 ✅ W3-4   单Agent验证（qwen3.5-plus 跑通）
-🔜 W5-6   多角色独立Agent系统 + Jarvis元Agent
-   W7     推演引擎（分支、快照、回退）
+✅ W5-6   多角色独立Agent系统 + Jarvis元Agent
+🔜 W7     推演引擎（分支、快照、回退）
    W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
    W9     API层（REST + WebSocket）
    W10+   前端（Qwen负责，React + TypeScript + React Flow）
