@@ -65,18 +65,22 @@
   - `RelationshipAnalysis`：Jarvis 分析输出
 - `src/data/storage.py` — JSON 存储层（Phase 4 迁移三库）
 
-**W3-4：单Agent真实性验证（已通过）**
+**W3-4：单Agent真实性验证（✅ 2026-04-06 通过）**
 - `src/agents/llm_client.py` — LLM 接入层，默认百炼 qwen3.5-plus，模型可配置
 - `src/agents/role_agent.py` — RoleAgentRuntime，完全隔离的角色对话运行时
 - `test_agent.py` — 测试脚本，创建"小雨"角色，三轮对话验证通过
-- **验证结果**：API 连通，角色回复正常，对话历史自动保存
+- **真实回复样本**：
+  - 用户"今天工作好累" → 小雨"亲爱的，辛苦啦～（轻轻抱住）听到你说累，我好心疼哦..."
+  - 用户"想你了" → 小雨"真的嘛～（嘴角不自觉上扬，心里甜甜的）..."
+  - 用户"你最近有没有觉得我有点冷落你" → 小雨"（稍微愣了一下，眼神里闪过一丝被说中的慌乱...）"
+- **结论：角色人设、情感表达完全自然，核心验证通过，可以进入下一阶段**
 
-### 🔜 下一步（W5-6）
+### 🔜 下一步（W5-6）— 下次对话继续
 
 **多角色独立 Agent 系统**
-- 角色池管理（AgentFactory）
-- 多个角色同时存在、完全隔离
-- Jarvis 元 Agent（只读状态、分析输出）
+- `src/agents/agent_factory.py` — AgentFactory，统一创建和管理角色实例
+- 多个角色同时存在、完全隔离（各自独立记忆、独立会话）
+- `src/agents/jarvis.py` — Jarvis 元 Agent（只读所有角色状态，输出分析建议）
 
 ---
 
@@ -98,7 +102,7 @@
 
 ```
 social-relationships/
-├── CLAUDE.md              ← 本文件（Claude 记忆）
+├── SOCIAL-RELATIONSHIPS-MEMORY.md  ← 本文件（Claude 记忆）
 ├── .env                   ← API Key（不推到 GitHub）
 ├── .env.example           ← 配置模板
 ├── .gitignore
