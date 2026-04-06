@@ -104,14 +104,22 @@
 - PostgreSQL/Neo4j 代码已就位，部署时切换，MVP 继续用 JSON
 - `data/chroma/` 已加入 `.gitignore`
 
-### 🔜 下一步（W9）— API 层
-
-**REST + WebSocket**
-- `src/api/main.py` — FastAPI 主入口
-- `src/api/routes/roles.py` — 角色管理接口
-- `src/api/routes/chat.py` — 对话接口（含 WebSocket 流式）
-- `src/api/routes/simulation.py` — 推演引擎接口
+**W9：API 层（✅ 2026-04-06 完成）**
+- `src/api/main.py` — FastAPI 主入口，CORS 已配置
+- `src/api/routes/roles.py` — 角色 CRUD + 历史导入
+- `src/api/routes/chat.py` — REST 对话 + WebSocket 流式
+- `src/api/routes/simulation.py` — 推演分支全套接口
 - `src/api/routes/jarvis.py` — Jarvis 分析接口
+- 启动命令：`uvicorn src.api.main:app --reload --port 8000`
+- API 文档：`http://localhost:8000/docs`
+- **全部21条路由加载验证通过**
+
+### 🔜 下一步（W10+）— 前端
+
+**交给 Qwen/Jarvis 做，我提供 API 文档**
+- 技术栈：React + TypeScript + React Flow
+- 核心页面：关系图谱、对话界面、上帝面板（推演控制台）
+- 对接方式：REST API + WebSocket（`ws://localhost:8000/chat/{role_id}/ws`）
 
 ---
 
@@ -123,7 +131,8 @@
 ✅ W5-6   多角色独立Agent系统 + Jarvis元Agent
 ✅ W7     推演引擎（分支、快照、回退）
 ✅ W8     三库迁移（ChromaDB已验证，PG/Neo4j代码就位）
-🔜 W9     API层（REST + WebSocket）
+✅ W9     API层（FastAPI，21条路由全部验证通过）
+🔜 W10+   前端（Qwen负责，React + TypeScript + React Flow）
    W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
    W9     API层（REST + WebSocket）
    W10+   前端（Qwen负责，React + TypeScript + React Flow）
