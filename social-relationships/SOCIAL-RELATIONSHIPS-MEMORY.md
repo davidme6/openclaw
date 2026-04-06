@@ -96,13 +96,22 @@
 - **验证结果**：分支创建、独立对话、Jarvis对比分析、合并放弃、主线保持独立全部通过
 - **注意**：llm_client.py 已加 timeout=60s + max_retries=3（解决代理超时问题）
 
-### 🔜 下一步（W8）— 三库迁移
+**W8：三库迁移（✅ 2026-04-06 完成）**
+- `src/database/pg.py` — PostgreSQL（结构化数据，需本地起服务）
+- `src/database/graph.py` — Neo4j（关系图谱，需本地起服务）
+- `src/database/vector.py` — ChromaDB（向量记忆）✅ 已验证
+- ChromaDB 已接入 RoleAgentRuntime，每次对话自动写入向量
+- PostgreSQL/Neo4j 代码已就位，部署时切换，MVP 继续用 JSON
+- `data/chroma/` 已加入 `.gitignore`
 
-**PostgreSQL + Neo4j + ChromaDB**
-- `src/database/pg.py` — PostgreSQL（结构化数据：用户、角色、配置）
-- `src/database/graph.py` — Neo4j（关系图谱：人与人之间的网络）
-- `src/database/vector.py` — ChromaDB（向量化聊天记忆，语义检索）
-- 替换现有 JSON 存储层，接口保持不变（对上层透明）
+### 🔜 下一步（W9）— API 层
+
+**REST + WebSocket**
+- `src/api/main.py` — FastAPI 主入口
+- `src/api/routes/roles.py` — 角色管理接口
+- `src/api/routes/chat.py` — 对话接口（含 WebSocket 流式）
+- `src/api/routes/simulation.py` — 推演引擎接口
+- `src/api/routes/jarvis.py` — Jarvis 分析接口
 
 ---
 
@@ -113,7 +122,8 @@
 ✅ W3-4   单Agent验证（qwen3.5-plus 跑通）
 ✅ W5-6   多角色独立Agent系统 + Jarvis元Agent
 ✅ W7     推演引擎（分支、快照、回退）
-🔜 W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
+✅ W8     三库迁移（ChromaDB已验证，PG/Neo4j代码就位）
+🔜 W9     API层（REST + WebSocket）
    W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
    W9     API层（REST + WebSocket）
    W10+   前端（Qwen负责，React + TypeScript + React Flow）
