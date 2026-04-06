@@ -6,6 +6,7 @@ Each instance is completely isolated: own system prompt, own memory, own context
 from typing import Optional
 from ..data.schemas import RoleAgent as RoleAgentSchema, Message, ConversationThread
 from ..data import storage
+from ..database import store_message, search_memory
 from .llm_client import chat
 import uuid
 from datetime import datetime
@@ -85,6 +86,13 @@ class RoleAgentRuntime:
         )
         self.thread.messages.append(agent_msg)
         storage.save_conversation(self.thread)
+
+        # 同步到向量记忆
+        try:
+            store_message(self.role.id, user_msg)
+            store_message(self.role.id, agent_msg)
+        except Exception:
+            pass  # 向量存储失败不影响主流程
 
         return response_text
 
