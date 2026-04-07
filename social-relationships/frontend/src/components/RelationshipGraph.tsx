@@ -16,26 +16,38 @@ function RoleNode({ data }: { data: any }) {
   return (
     <div
       onClick={() => onClick(role.id)}
-      style={{ borderColor: color, boxShadow: isSelected ? `0 0 0 3px ${color}` : undefined }}
-      className={`
-        bg-gray-900 border-2 rounded-xl px-4 py-3 cursor-pointer min-w-[120px] text-center
-        transition-all hover:scale-105
-      `}
+      style={{
+        background: '#1a1d27',
+        border: `2px solid ${isSelected ? '#6366f1' : color}`,
+        borderRadius: 12,
+        padding: '10px 14px',
+        minWidth: 100,
+        textAlign: 'center',
+        cursor: 'pointer',
+        boxShadow: isSelected ? `0 0 0 3px rgba(99,102,241,0.4)` : undefined,
+        transition: 'all 0.15s',
+      }}
     >
-      <div className="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center text-xl font-bold"
-        style={{ backgroundColor: color + '33', color }}>
-        {role.name[0]}
+      <div style={{
+        width: 36, height: 36, borderRadius: '50%',
+        margin: '0 auto 8px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 16, fontWeight: 700,
+        backgroundColor: color + '33', color,
+      }}>
+        {role.name.charAt(0)}
       </div>
-      <div className="text-white text-sm font-semibold">{role.name}</div>
-      <div className="text-xs mt-1" style={{ color }}>{REL_TYPE_LABELS[role.relationship_type as keyof typeof REL_TYPE_LABELS]}</div>
-      {role.age && <div className="text-gray-400 text-xs">{role.age}岁</div>}
+      <div style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>{role.name}</div>
+      <div style={{ color, fontSize: 11, marginTop: 3 }}>
+        {REL_TYPE_LABELS[role.relationship_type as keyof typeof REL_TYPE_LABELS]}
+      </div>
+      {role.age && <div style={{ color: '#94a3b8', fontSize: 11 }}>{role.age}岁</div>}
     </div>
   )
 }
 
 const nodeTypes: NodeTypes = { role: RoleNode }
 
-// Layout: arrange roles in a circle around the user
 function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: string) => void) {
   const nodes: Node[] = [
     {
@@ -53,7 +65,7 @@ function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: str
   ]
 
   const edges: Edge[] = []
-  const radius = Math.max(200, roles.length * 60)
+  const radius = Math.max(200, roles.length * 65)
   const angleStep = (2 * Math.PI) / Math.max(roles.length, 1)
 
   roles.forEach((role, i) => {
@@ -96,10 +108,10 @@ export default function RelationshipGraph() {
     setEdges(e)
   }, [roles, selectedRoleId])
 
-  const onConnect = useCallback((c: Connection) => setEdges((eds) => addEdge(c, eds)), [])
+  const onConnect = useCallback((c: Connection) => setEdges(eds => addEdge(c, eds)), [])
 
   return (
-    <div className="w-full h-full bg-gray-950 rounded-xl overflow-hidden">
+    <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes} edges={edges}
         onNodesChange={onNodesChange}
@@ -109,13 +121,16 @@ export default function RelationshipGraph() {
         fitView
         fitViewOptions={{ padding: 0.3 }}
       >
-        <Background color="#1e293b" gap={20} />
-        <Controls className="!bg-gray-900 !border-gray-700" />
-        <MiniMap className="!bg-gray-900 !border-gray-700" nodeColor={(n) => {
-          if (n.id === 'user') return '#6366f1'
-          const role = roles.find(r => r.id === n.id)
-          return role ? REL_STATUS_COLORS[role.relationship_status] : '#475569'
-        }} />
+        <Background color="#2d3148" gap={20} />
+        <Controls style={{ background: '#1a1d27', border: '1px solid #2d3148' }} />
+        <MiniMap
+          style={{ background: '#1a1d27', border: '1px solid #2d3148' }}
+          nodeColor={(n) => {
+            if (n.id === 'user') return '#6366f1'
+            const role = roles.find(r => r.id === n.id)
+            return role ? REL_STATUS_COLORS[role.relationship_status] : '#475569'
+          }}
+        />
       </ReactFlow>
     </div>
   )

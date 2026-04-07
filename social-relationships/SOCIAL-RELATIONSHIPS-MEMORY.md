@@ -29,6 +29,7 @@
 - **API Key**：在 `.env` 文件中，变量名 `DASHSCOPE_API_KEY`（不推到 GitHub）
 - **MVP 存储**：JSON 文件（Phase 4 迁移三库）
 - **目标存储**：PostgreSQL + Neo4j + ChromaDB
+- **前端**：React + TypeScript + ReactFlow + Zustand + TanStack Query（Vite 构建）
 
 ---
 
@@ -36,16 +37,15 @@
 
 | 角色 | 负责 |
 |------|------|
-| Claude Code（我） | 后端全部：Agent系统、推演引擎、API层 |
-| Qwen/Jarvis | 前端：React + TypeScript + React Flow |
-| Trae | 后期前端优化 |
+| Claude Code（我） | 后端全部 + 前端全部（百炼额度不足，Claude接管） |
+| Trae | 后期前端优化（交 `frontend/` 文件夹给他） |
 
 ---
 
 ## 代码仓库
 
 - **私有仓库**：`davidme6/Claude-code`（私有，防止项目泄露）
-- **分支**：`main`
+- **分支**：`claude/social-relationships-planning-dr7vE`
 - **项目路径**：`projects/social-relationships/`（已重新整理）
 
 ---
@@ -68,21 +68,12 @@
 **W3-4：单Agent真实性验证（✅ 2026-04-06 通过）**
 - `src/agents/llm_client.py` — LLM 接入层，默认百炼 qwen3.5-plus，模型可配置
 - `src/agents/role_agent.py` — RoleAgentRuntime，完全隔离的角色对话运行时
-- `test_agent.py` — 测试脚本，创建"小雨"角色，三轮对话验证通过
-- **真实回复样本**：
-  - 用户"今天工作好累" → 小雨"亲爱的，辛苦啦～（轻轻抱住）听到你说累，我好心疼哦..."
-  - 用户"想你了" → 小雨"真的嘛～（嘴角不自觉上扬，心里甜甜的）..."
-  - 用户"你最近有没有觉得我有点冷落你" → 小雨"（稍微愣了一下，眼神里闪过一丝被说中的慌乱...）"
-- **结论：角色人设、情感表达完全自然，核心验证通过，可以进入下一阶段**
+- **真实回复样本**：角色人设、情感表达完全自然，核心验证通过
 
 **W5-6：多角色独立Agent系统 + Jarvis（✅ 2026-04-06 通过）**
 - `src/agents/agent_factory.py` — AgentFactory，统一创建管理角色实例
 - `src/agents/jarvis.py` — Jarvis 元Agent，只读所有关系状态，综合分析输出
-- `test_multi_agent.py` — 多角色测试脚本
-- **验证结果**：
-  - 小雨（恋人）、老爸（父母）独立运行，风格完全不同
-  - 角色隔离验证：小雨不知道老爸存在
-  - Jarvis 能综合分析所有关系，输出数据驱动的报告
+- 小雨（恋人）、老爸（父母）独立运行，风格完全不同，角色隔离验证通过
 
 **W7：推演引擎（✅ 2026-04-06 通过）**
 - `src/simulation/engine.py` — 核心推演引擎
@@ -92,17 +83,12 @@
   - `compare_branches()` — Jarvis 对比多方案
   - `merge_branch()` / `abandon_branch()` — 合并/放弃
   - `rollback_to_snapshot()` — 回退到任意节点
-- `test_simulation.py` — 推演引擎测试脚本
-- **验证结果**：分支创建、独立对话、Jarvis对比分析、合并放弃、主线保持独立全部通过
-- **注意**：llm_client.py 已加 timeout=60s + max_retries=3（解决代理超时问题）
 
 **W8：三库迁移（✅ 2026-04-06 完成）**
 - `src/database/pg.py` — PostgreSQL（结构化数据，需本地起服务）
 - `src/database/graph.py` — Neo4j（关系图谱，需本地起服务）
 - `src/database/vector.py` — ChromaDB（向量记忆）✅ 已验证
 - ChromaDB 已接入 RoleAgentRuntime，每次对话自动写入向量
-- PostgreSQL/Neo4j 代码已就位，部署时切换，MVP 继续用 JSON
-- `data/chroma/` 已加入 `.gitignore`
 
 **W9：API 层（✅ 2026-04-06 完成）**
 - `src/api/main.py` — FastAPI 主入口，CORS 已配置
@@ -111,32 +97,63 @@
 - `src/api/routes/simulation.py` — 推演分支全套接口
 - `src/api/routes/jarvis.py` — Jarvis 分析接口
 - 启动命令：`uvicorn src.api.main:app --reload --port 8000`
-- API 文档：`http://localhost:8000/docs`
 - **全部21条路由加载验证通过**
 
-### 🔜 下一步（W10+）— 前端
-
-**交给 Qwen/Jarvis 做，我提供 API 文档**
-- 技术栈：React + TypeScript + React Flow
-- 核心页面：关系图谱、对话界面、上帝面板（推演控制台）
-- 对接方式：REST API + WebSocket（`ws://localhost:8000/chat/{role_id}/ws`）
+**W10：前端（✅ 2026-04-07 完成）**
+- 技术栈：React 19 + TypeScript + ReactFlow + Zustand + TanStack Query + Vite
+- **无 Tailwind**，全部使用自定义 CSS（`src/index.css`），深色主题
+- `src/api/client.ts` — axios API 客户端（rolesApi, chatApi, simApi, jarvisApi, createChatWS）
+- `src/types/index.ts` — TypeScript 类型定义（Role, Message, Branch + 枚举标签）
+- `src/store/index.ts` — Zustand 全局状态（roles, selectedRoleId, messages, branches, activeBranchId, jarvisPanel）
+- `src/components/RelationshipGraph.tsx` — Module 1：ReactFlow 上帝视角关系图谱
+  - 圆形布局：用户居中，角色环绕
+  - 自定义 RoleNode（状态颜色边框、首字母头像）
+  - 动态边（active关系有动画、distant用虚线）
+- `src/components/ChatPanel.tsx` — Module 2：对话界面
+  - 消息气泡（用户右侧蓝色、Agent左侧深色）
+  - 分支模式指示器（🌿 推演模式）
+  - 打字动画、Enter发送
+- `src/components/SimulationPanel.tsx` — Module 3：上帝面板/推演控制台
+  - 创建/进入/退出分支
+  - 合并（填写现实结果）/ 放弃分支
+  - ≥2个活跃分支时显示 Jarvis 对比按钮
+- `src/components/JarvisPanel.tsx` — Jarvis 侧边分析面板
+  - 全局分析 / 特定角色分析双模式
+  - 对话历史记录（问题+答案）
+- `src/components/AddRoleModal.tsx` — 添加角色弹窗
+  - 基本信息（姓名、关系类型、状态、年龄、职业、简介）
+  - 性格模型（MBTI、说话风格、价值观、触发点、爱的语言）
+- `src/App.tsx` — 主布局（三栏 + Jarvis侧边栏）
+  - 顶栏：app名称 + Jarvis切换按钮
+  - 左栏：角色列表（220px）
+  - 中栏：关系图谱（flex:1）
+  - 右栏：对话/推演切换（360px）
+  - Jarvis 侧边栏：绝对定位覆盖右侧（420px）
+- `src/index.css` — 全局样式（深色主题，CSS变量）
+- `src/main.tsx` — 入口，包含 QueryClientProvider
 
 ---
 
-## 开发路线图
+## 启动方式
 
+### 后端
+```bash
+cd social-relationships
+pip install -r requirements.txt
+uvicorn src.api.main:app --reload --port 8000
 ```
-✅ W1-2   数据结构设计
-✅ W3-4   单Agent验证（qwen3.5-plus 跑通）
-✅ W5-6   多角色独立Agent系统 + Jarvis元Agent
-✅ W7     推演引擎（分支、快照、回退）
-✅ W8     三库迁移（ChromaDB已验证，PG/Neo4j代码就位）
-✅ W9     API层（FastAPI，21条路由全部验证通过）
-🔜 W10+   前端（Qwen负责，React + TypeScript + React Flow）
-   W8     三库迁移（PostgreSQL + Neo4j + ChromaDB）
-   W9     API层（REST + WebSocket）
-   W10+   前端（Qwen负责，React + TypeScript + React Flow）
+
+### 前端
+```bash
+cd social-relationships/frontend
+npm install
+npm run dev
+# 访问 http://localhost:5173
 ```
+
+### 环境变量
+- 后端：`social-relationships/.env` 中 `DASHSCOPE_API_KEY=你的key`
+- 前端：`social-relationships/frontend/.env` 中 `VITE_API_URL=http://localhost:8000`
 
 ---
 
@@ -149,18 +166,44 @@ social-relationships/
 ├── .env.example           ← 配置模板
 ├── .gitignore
 ├── requirements.txt
-├── test_agent.py          ← 单Agent测试脚本
 ├── src/
 │   ├── agents/
 │   │   ├── llm_client.py  ← LLM 接入（百炼 Coding Plan）
-│   │   └── role_agent.py  ← RoleAgentRuntime
-│   └── data/
-│       ├── schemas.py     ← 所有数据结构
-│       └── storage.py     ← JSON 存储层
+│   │   ├── role_agent.py  ← RoleAgentRuntime
+│   │   ├── agent_factory.py
+│   │   └── jarvis.py      ← Jarvis 元Agent
+│   ├── data/
+│   │   ├── schemas.py     ← 所有数据结构
+│   │   └── storage.py     ← JSON 存储层
+│   ├── database/
+│   │   ├── pg.py          ← PostgreSQL
+│   │   ├── graph.py       ← Neo4j
+│   │   └── vector.py      ← ChromaDB
+│   ├── simulation/
+│   │   └── engine.py      ← 推演引擎
+│   └── api/
+│       ├── main.py        ← FastAPI 主入口
+│       ├── deps.py        ← 依赖注入
+│       └── routes/        ← roles, chat, simulation, jarvis
+├── frontend/
+│   ├── src/
+│   │   ├── api/client.ts
+│   │   ├── types/index.ts
+│   │   ├── store/index.ts
+│   │   ├── components/
+│   │   │   ├── RelationshipGraph.tsx ✅
+│   │   │   ├── ChatPanel.tsx         ✅
+│   │   │   ├── SimulationPanel.tsx   ✅
+│   │   │   ├── JarvisPanel.tsx       ✅
+│   │   │   └── AddRoleModal.tsx      ✅
+│   │   ├── App.tsx                   ✅
+│   │   ├── main.tsx                  ✅
+│   │   └── index.css                 ✅
+│   └── .env               ← VITE_API_URL（不推到 GitHub）
 └── data/
-    ├── roles/             ← 角色数据
-    ├── conversations/     ← 对话历史
-    └── timelines/         ← 推演分支
+    ├── roles/
+    ├── conversations/
+    └── timelines/
 ```
 
 ---
@@ -171,3 +214,14 @@ social-relationships/
 - `BAILIAN_BASE_URL` 必须是 `https://coding.dashscope.aliyuncs.com/v1`（Coding Plan 专属）
 - 每个新角色 = 新的 `RoleAgentRuntime` 实例，绝不共享上下文
 - 推演分支用 `SimulationBranch`，快照用 `TimelineSnapshot`，类比 git branch/commit
+- 前端无 Tailwind，全部自定义 CSS，深色主题（CSS 变量在 `:root`）
+
+---
+
+## 下一步（可选优化）
+
+- [ ] 交给 Trae 做前端 UI 精细优化（直接给他 `frontend/` 文件夹）
+- [ ] 本地部署测试（需要运行后端 + 前端）
+- [ ] PostgreSQL + Neo4j 本地部署（目前 MVP 用 JSON）
+- [ ] WebSocket 流式回复（目前用 REST，后端已有 WS 路由）
+- [ ] 导入真实聊天记录（WhatsApp/微信导出格式解析）
