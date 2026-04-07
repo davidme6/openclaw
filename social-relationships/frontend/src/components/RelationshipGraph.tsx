@@ -1,10 +1,10 @@
 // Module 1: Relationship Graph - God-view of all social connections
 import { useCallback, useEffect } from 'react'
 import ReactFlow, {
-  Node, Edge, Background, Controls, MiniMap,
+  Background, Controls, MiniMap,
   useNodesState, useEdgesState, addEdge,
-  Connection, NodeTypes,
 } from 'reactflow'
+import type { Node, Edge, Connection, NodeTypes } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { REL_TYPE_LABELS, REL_STATUS_COLORS } from '../types'
 import type { Role } from '../types'
