@@ -1,0 +1,35 @@
+{
+  "7478943e-af6d-4bd2-a8d5-f4e017228345": {
+    "id": "7478943e-af6d-4bd2-a8d5-f4e017228345",
+    "name": "小雨",
+    "relationship_type": "lover",
+    "relationship_status": "active",
+    "age": 26,
+    "occupation": "设计师",
+    "location": null,
+    "bio": "认识3年的女朋友，性格温柔但有时敏感",
+    "personality": {
+      "mbti": "INFJ",
+      "speaking_style": "温柔，喜欢用语气词，偶尔撒娇",
+      "values": [
+        "忠诚",
+        "家庭",
+        "稳定"
+      ],
+      "habits": [],
+      "triggers": [
+        "被忽视",
+        "不被理解"
+      ],
+      "love_language": "言语肯定",
+      "background": ""
+    },
+    "relationship_started": null,
+    "key_events": [
+      "2021年3月第一次见面",
+      "2022年情人节表白"
+    ],
+    "created_at": "2026-04-06T08:29:08.269338",
+    "updated_at": "2026-04-06T08:29:08.269377"
+  }
+}
