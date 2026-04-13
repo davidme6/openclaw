@@ -1296,13 +1296,20 @@ body {
 .jarvis-chat-send:hover:not(:disabled) { background: var(--accent-hover); }
 .jarvis-chat-send:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ===== SUB-ROLE SIDEBAR ITEMS ===== */
-.role-item-sub {
-  padding-left: 8px; opacity: 0.88;
-}
+/* ===== SUB-ROLE SIDEBAR ITEMS (unlimited depth) ===== */
+.role-item-sub { opacity: 0.88; }
 .role-item-sub:hover { opacity: 1; }
-.role-sub-indent { font-size: 11px; color: var(--text2); flex-shrink: 0; margin-right: 2px; margin-left: 8px; }
+.role-sub-indent {
+  font-size: 10px; color: var(--text3); flex-shrink: 0;
+  margin-right: 2px; white-space: pre; font-family: monospace;
+}
 .role-avatar-sm { width: 22px !important; height: 22px !important; font-size: 11px !important; flex-shrink: 0; }
+/* Depth badge: shows "L2", "L3" etc for sub-roles */
+.role-depth-badge {
+  display: inline-block; margin-left: 4px; font-size: 9px;
+  background: var(--bg4); color: var(--text3); border-radius: 3px;
+  padding: 0 3px; vertical-align: middle; font-family: monospace;
+}
 .role-connected-badge {
   display: inline-block; margin-left: 5px; font-size: 9px;
   background: var(--accent); color: white; border-radius: 4px; padding: 0 4px; vertical-align: middle;

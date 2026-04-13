@@ -7,6 +7,13 @@ export type RelationshipStatus = 'active' | 'strained' | 'distant' | 'ended' | '
 
 export type BranchStatus = 'active' | 'merged' | 'abandoned'
 
+export interface RoleRelationship {
+  target_role_id: string   // "user" or another role's id
+  label?: string
+  dashed?: boolean         // false = solid (direct), true = dashed (indirect)
+  curve?: number
+}
+
 export interface Role {
   id: string
   name: string
@@ -14,14 +21,26 @@ export interface Role {
   relationship_status: RelationshipStatus
   age?: number
   occupation?: string
+  location?: string
   bio?: string
   personality?: {
     mbti?: string
     speaking_style?: string
     values?: string[]
+    habits?: string[]
     triggers?: string[]
     love_language?: string
+    background?: string
   }
+  key_events?: string[]
+  relationship_started?: string
+  // Hierarchy — unlimited depth
+  parent_role_id?: string | null
+  connected_to_user?: boolean
+  // Any-to-any relationship lines
+  role_relationships?: RoleRelationship[]
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Message {
@@ -49,4 +68,11 @@ export const REL_TYPE_LABELS: Record<RelationshipType, string> = {
 export const REL_STATUS_COLORS: Record<RelationshipStatus, string> = {
   active: '#22c55e', strained: '#f59e0b',
   distant: '#94a3b8', ended: '#ef4444', deceased: '#7c3aed',
+}
+
+export const REL_TYPE_COLORS: Record<RelationshipType, string> = {
+  lover: '#f59e0b', spouse: '#ec4899', first_love: '#fb923c',
+  parent: '#60a5fa', grandparent: '#818cf8', sibling: '#34d399',
+  relative: '#a78bfa', friend: '#34d399', colleague: '#a78bfa',
+  classmate: '#fbbf24', boss: '#f87171', other: '#94a3b8',
 }

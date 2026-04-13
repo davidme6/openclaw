@@ -17,6 +17,107 @@ import { staggerFadeIn, fadeIn } from './utils/animations'
 
 type RightPanel = 'chat' | 'simulation'
 
+// ── Recursive sidebar node — renders a role and all its children to unlimited depth ──
+interface RoleTreeNodeProps {
+  role: Role
+  depth: number
+  childrenMap: Map<string, Role[]>
+  selectedRoleId: string | null
+  pinnedIds: Set<string>
+  onSelect: (id: string) => void
+  onPin: (e: React.MouseEvent, id: string) => void
+  onAddChild: (role: Role) => void
+  onEdit: (role: Role) => void
+  onDelete: (e: React.MouseEvent, role: Role) => void
+}
+
+function RoleTreeNode({
+  role, depth, childrenMap, selectedRoleId, pinnedIds,
+  onSelect, onPin, onAddChild, onEdit, onDelete,
+}: RoleTreeNodeProps) {
+  const typeColor = REL_TYPE_COLORS[role.relationship_type] || '#94a3b8'
+  const isPinned = pinnedIds.has(role.id)
+  const children = childrenMap.get(role.id) || []
+  // Visual indent: each level adds 14px, capped at 56px (4 levels) for readability
+  const indent = Math.min(depth * 14, 56)
+  const isRoot = depth === 0
+
+  return (
+    <div>
+      <div
+        className={`role-item${isRoot ? '' : ' role-item-sub'} ${selectedRoleId === role.id ? 'selected' : ''} ${isPinned ? 'pinned' : ''}`}
+        style={indent > 0 ? { paddingLeft: 8 + indent } : undefined}
+        onClick={() => onSelect(role.id)}
+      >
+        {/* Tree connector lines */}
+        {depth > 0 && (
+          <div className="role-sub-indent" style={{ opacity: 0.4 + Math.min(depth * 0.1, 0.4) }}>
+            {'└'.padStart(depth, ' ')}
+          </div>
+        )}
+
+        <div
+          className={`role-avatar${isRoot ? '' : ' role-avatar-sm'}`}
+          style={{
+            backgroundColor: typeColor + (isRoot ? '33' : '22'),
+            borderColor: typeColor + (isRoot ? '' : '88'),
+            color: typeColor,
+            flexShrink: 0,
+          }}
+        >
+          {role.name.charAt(0)}
+          {isPinned && isRoot && <span className="role-avatar-pin">📌</span>}
+        </div>
+
+        <div className="role-info">
+          <div className="role-name" style={isRoot ? undefined : { fontSize: 12 }}>
+            {role.name}
+            {depth > 0 && <span className="role-depth-badge">L{depth + 1}</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+            <span className="role-type" style={{ color: typeColor, fontSize: isRoot ? undefined : 11 }}>
+              {REL_TYPE_LABELS[role.relationship_type]}
+            </span>
+            <div className="role-actions">
+              {isRoot && (
+                <button className="role-action-btn" title={isPinned ? '取消置顶' : '置顶'}
+                  onClick={e => onPin(e, role.id)}>
+                  {isPinned ? '📌' : '☆'}
+                </button>
+              )}
+              <button className="role-action-btn" title={`添加关联角色`}
+                onClick={e => { e.stopPropagation(); onAddChild(role) }}>⊕</button>
+              <button className="role-action-btn" title="编辑"
+                onClick={e => { e.stopPropagation(); onEdit(role) }}>✏️</button>
+              <button className="role-action-btn danger" title="删除"
+                onClick={e => onDelete(e, role)}>🗑</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="role-status-dot" style={{ backgroundColor: REL_STATUS_COLORS[role.relationship_status] }} />
+      </div>
+
+      {/* Recursively render children */}
+      {children.map(child => (
+        <RoleTreeNode
+          key={child.id}
+          role={child}
+          depth={depth + 1}
+          childrenMap={childrenMap}
+          selectedRoleId={selectedRoleId}
+          pinnedIds={pinnedIds}
+          onSelect={onSelect}
+          onPin={onPin}
+          onAddChild={onAddChild}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const { roles, setRoles, selectedRoleId, setSelectedRole, jarvisPanel, toggleJarvis } = useStore()
   const qc = useQueryClient()
@@ -102,19 +203,19 @@ export default function App() {
   })
   useEffect(() => { if (data) setRoles(data) }, [data, setRoles])
 
-  // Sort: pinned first, then alphabetical (main roles only; sub-roles shown under parent)
-  const mainRoles = roles.filter(r => !r.parent_role_id)
-  const sortedRoles = [...mainRoles].sort((a, b) => {
+  // Build children map for unlimited-depth tree
+  const childrenByParent = new Map<string, Role[]>()
+  roles.forEach(r => {
+    if (r.parent_role_id) {
+      if (!childrenByParent.has(r.parent_role_id)) childrenByParent.set(r.parent_role_id, [])
+      childrenByParent.get(r.parent_role_id)!.push(r)
+    }
+  })
+  // Top-level roles sorted: pinned first, then alphabetical
+  const rootRoles = [...roles.filter(r => !r.parent_role_id)].sort((a, b) => {
     const ap = pinnedIds.has(a.id) ? 0 : 1
     const bp = pinnedIds.has(b.id) ? 0 : 1
     return ap - bp || a.name.localeCompare(b.name, 'zh')
-  })
-  // Sub-roles grouped by parent
-  const subRolesByParent = new Map<string, Role[]>()
-  roles.filter(r => r.parent_role_id).forEach(r => {
-    const pid = r.parent_role_id!
-    if (!subRolesByParent.has(pid)) subRolesByParent.set(pid, [])
-    subRolesByParent.get(pid)!.push(r)
   })
 
   // 入场动画
@@ -188,89 +289,21 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              sortedRoles.map(role => {
-                const typeColor = REL_TYPE_COLORS[role.relationship_type] || '#94a3b8'
-                const isPinned = pinnedIds.has(role.id)
-                const children = subRolesByParent.get(role.id) || []
-                return (
-                  <div key={role.id}>
-                    {/* 主角色行 */}
-                    <div
-                      className={`role-item ${selectedRoleId === role.id ? 'selected' : ''} ${isPinned ? 'pinned' : ''}`}
-                      onClick={() => setSelectedRole(role.id)}
-                    >
-                      <div className="role-avatar" style={{ backgroundColor: typeColor + '33', borderColor: typeColor, color: typeColor }}>
-                        {role.name.charAt(0)}
-                        {isPinned && <span className="role-avatar-pin">📌</span>}
-                      </div>
-                      <div className="role-info">
-                        <span className="role-name">{role.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                          <span className="role-type" style={{ color: typeColor }}>
-                            {REL_TYPE_LABELS[role.relationship_type]}
-                          </span>
-                          {/* 操作按钮组 - hover 显示 */}
-                          <div className="role-actions">
-                            <button className="role-action-btn" title={isPinned ? '取消置顶' : '置顶'}
-                              onClick={e => togglePin(e, role.id)}>
-                              {isPinned ? '📌' : '☆'}
-                            </button>
-                            <button className="role-action-btn" title={`添加${role.name}的关联角色`}
-                              onClick={e => { e.stopPropagation(); setAddSubRoleParent(role) }}>
-                              ⊕
-                            </button>
-                            <button className="role-action-btn" title="编辑"
-                              onClick={e => { e.stopPropagation(); setEditingRole(role) }}>
-                              ✏️
-                            </button>
-                            <button className="role-action-btn danger" title="删除"
-                              onClick={e => handleDelete(e, role)}>
-                              🗑
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="role-status-dot" style={{ backgroundColor: REL_STATUS_COLORS[role.relationship_status] }} />
-                    </div>
-                    {/* 关联子角色（缩进显示） */}
-                    {children.map(child => {
-                      const childColor = REL_TYPE_COLORS[child.relationship_type] || '#94a3b8'
-                      return (
-                        <div key={child.id}
-                          className={`role-item role-item-sub ${selectedRoleId === child.id ? 'selected' : ''}`}
-                          onClick={() => setSelectedRole(child.id)}
-                        >
-                          <div className="role-sub-indent">└</div>
-                          <div className="role-avatar role-avatar-sm"
-                            style={{ backgroundColor: childColor + '22', borderColor: childColor + '88', color: childColor }}>
-                            {child.name.charAt(0)}
-                          </div>
-                          <div className="role-info">
-                            <div className="role-name" style={{ fontSize: 12 }}>
-                              {child.name}
-                              {child.connected_to_user && <span className="role-connected-badge">已连接</span>}
-                            </div>
-                            <div className="role-type" style={{ color: childColor, fontSize: 11 }}>
-                              {REL_TYPE_LABELS[child.relationship_type]}
-                            </div>
-                          </div>
-                          <div className="role-actions">
-                            <button className="role-action-btn" title={`添加${child.name}的关联角色`}
-                              onClick={e => { e.stopPropagation(); setAddSubRoleParent(child) }}>
-                              ⊕
-                            </button>
-                            <button className="role-action-btn" title="编辑"
-                              onClick={e => { e.stopPropagation(); setEditingRole(child) }}>✏️</button>
-                            <button className="role-action-btn danger" title="删除"
-                              onClick={e => handleDelete(e, child)}>🗑</button>
-                          </div>
-                          <div className="role-status-dot" style={{ backgroundColor: REL_STATUS_COLORS[child.relationship_status] }} />
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })
+              rootRoles.map(role => (
+                <RoleTreeNode
+                  key={role.id}
+                  role={role}
+                  depth={0}
+                  childrenMap={childrenByParent}
+                  selectedRoleId={selectedRoleId}
+                  pinnedIds={pinnedIds}
+                  onSelect={setSelectedRole}
+                  onPin={togglePin}
+                  onAddChild={r => setAddSubRoleParent(r)}
+                  onEdit={r => setEditingRole(r)}
+                  onDelete={handleDelete}
+                />
+              ))
             )}
           </div>
         </aside>
