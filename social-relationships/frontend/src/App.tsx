@@ -152,7 +152,9 @@ export default function App() {
       const deltaX = e.clientX - resizeStartX.current
       const newWidth = resizeStartWidth.current + (isResizing === 'left' ? deltaX : -deltaX)
       if (isResizing === 'left') {
-        setLeftWidth(Math.max(180, Math.min(500, newWidth)))
+        // 允许拖到覆盖整个关系图区域（最大到右侧面板左边缘）
+        const maxLeft = window.innerWidth - rightWidth
+        setLeftWidth(Math.max(180, Math.min(maxLeft, newWidth)))
       } else {
         const maxRight = window.innerWidth - 300  // 留出最小中间区域
         setRightWidth(Math.max(320, Math.min(maxRight, newWidth)))

@@ -1,5 +1,5 @@
 // Module 2: Chat Panel - conversation with a role agent
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { chatApi } from '../api/client'
 import { useStore } from '../store'
 import { REL_TYPE_LABELS, REL_STATUS_COLORS } from '../types'
@@ -30,6 +30,31 @@ export default function ChatPanel() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // ── 输入框向上拖拽扩大（5-8x 默认高度）──────────────────────────────────
+  const [inputHeight, setInputHeight] = useState(48)
+  const dragRef = useRef(false)
+  const dragStartY = useRef(0)
+  const dragStartH = useRef(0)
+
+  const startInputResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragRef.current = true
+    dragStartY.current = e.clientY
+    dragStartH.current = inputHeight
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return
+      const delta = dragStartY.current - ev.clientY  // drag up = positive
+      setInputHeight(Math.max(40, Math.min(380, dragStartH.current + delta)))
+    }
+    const onUp = () => {
+      dragRef.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [inputHeight])
 
   const role = roles.find(r => r.id === selectedRoleId)
 
@@ -126,13 +151,16 @@ export default function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
+      {/* 向上拖拽扩大输入框 */}
+      <div className="chat-input-resize-handle" onMouseDown={startInputResize} />
+
       {/* Input */}
       <div className="chat-input-area">
         <textarea
           className="chat-input"
-          placeholder={`给 ${role.name} 发消息... (Enter 发送)`}
+          placeholder={`给 ${role.name} 发消息... (Enter 发送，Shift+Enter 换行)`}
           value={input}
-          rows={1}
+          style={{ height: inputHeight }}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey) {

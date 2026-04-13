@@ -140,8 +140,9 @@ function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: str
   }
 
   // ── Edges 1: user → role ─────────────────────────────────────────────────
-  // Skip roles that have an explicit "user" entry in role_relationships
-  // (those will be rendered by the role_relationships pass below)
+  // Skip roles that have an explicit "user" entry in role_relationships.
+  // Skip child roles (has parent) that are NOT directly connected to user —
+  // those are shown only via the hierarchy edge.
   const hasExplicitUserRel = new Set(
     roles
       .filter(r => r.role_relationships?.some(rel => rel.target_role_id === 'user'))
@@ -151,6 +152,8 @@ function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: str
   for (const role of roles) {
     if (hasExplicitUserRel.has(role.id)) continue
     const isDirect = role.connected_to_user !== false
+    // Child roles with connected_to_user: false are connected only via parent→child edge
+    if (role.parent_role_id && !isDirect) continue
     edges.push({
       id: `e-user-${role.id}`,
       source: 'user',
@@ -166,14 +169,22 @@ function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: str
   }
 
   // ── Edges 2: hierarchy parent → child ────────────────────────────────────
+  // Solid line = child is directly connected to user too
+  // Dashed line = child only connected via this hierarchy path
   for (const role of roles) {
     if (!role.parent_role_id) continue
+    const isDirect = role.connected_to_user !== false
+    const statusColor = REL_STATUS_COLORS[role.relationship_status] || '#818cf8'
     edges.push({
       id: `e-hier-${role.parent_role_id}-${role.id}`,
       source: role.parent_role_id,
       target: role.id,
-      style: { stroke: '#3d4266', strokeWidth: 1.5, strokeDasharray: '4,4' },
-      markerEnd: { type: 'arrowclosed' as any, color: '#3d4266' },
+      style: {
+        stroke: isDirect ? statusColor : '#6366f1',
+        strokeWidth: isDirect ? 2 : 1.5,
+        strokeDasharray: isDirect ? undefined : '5,5',
+        opacity: isDirect ? 1 : 0.7,
+      },
     })
   }
 

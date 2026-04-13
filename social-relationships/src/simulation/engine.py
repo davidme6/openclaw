@@ -3,8 +3,7 @@
 from typing import Optional
 from ..data import storage
 from ..data.schemas import SimulationBranch, BranchStatus
-from .agent_factory import AgentFactory
-from .jarvis import Jarvis
+from ..agents import AgentFactory, Jarvis
 
 
 class SimulationEngine:
