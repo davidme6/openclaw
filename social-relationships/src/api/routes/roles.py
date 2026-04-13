@@ -10,6 +10,10 @@ from ...data import storage
 
 router = APIRouter(prefix="/roles", tags=["roles"])
 
+# ── 安全上限（防止滥用）──────────────────────────────────────────────────────
+MAX_ROLES = 500   # 单用户最多角色数
+MAX_DEPTH = 10    # 层级最大深度（开源版够用；商业版可按订阅级别调整）
+
 
 class PersonalityIn(BaseModel):
     mbti: Optional[str] = None
@@ -100,6 +104,26 @@ def _role_to_dict(role) -> dict:
 
 @router.post("/")
 def create_role(req: CreateRoleRequest, factory: AgentFactory = Depends(get_factory)):
+    # ── 安全检查 ────────────────────────────────────────────────────────────
+    existing = storage.list_roles()
+    if len(existing) >= MAX_ROLES:
+        raise HTTPException(
+            status_code=429,
+            detail=f"角色数量已达上限（{MAX_ROLES} 个），请先删除不需要的角色",
+        )
+
+    if req.parent_role_id:
+        all_roles_dict = {r.id: r for r in existing}
+        parent = all_roles_dict.get(req.parent_role_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="指定的父角色不存在")
+        current_depth = parent.get_depth(all_roles_dict) + 1
+        if current_depth >= MAX_DEPTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"层级深度已达上限（{MAX_DEPTH} 层），无法继续嵌套",
+            )
+
     role = factory.create_role(
         name=req.name,
         relationship_type=req.relationship_type,
