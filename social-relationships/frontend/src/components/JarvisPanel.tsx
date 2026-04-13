@@ -358,7 +358,7 @@ export default function JarvisPanel() {
       setAnalysisHistory(prev => [{
         question: q,
         answer: result.analysis,
-        roleId: mode === 'role' ? selectedRoleId : undefined,
+        roleId: mode === 'role' ? (selectedRoleId ?? undefined) : undefined,
         roleName: mode === 'role' ? selectedRole?.name : undefined,
         ts: now(),
       }, ...prev])
