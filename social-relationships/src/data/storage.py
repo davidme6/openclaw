@@ -12,7 +12,7 @@ from .schemas import (
     RoleAgent, PersonalityModel, RoleRelationship,
     RelationshipType, RelationshipStatus,
     ConversationThread, SimulationBranch, Message, BranchStatus,
-    ModelSettings,
+    ModelSettings, UserMemory, MemoryType, MemorySource, JarvisSkill,
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
@@ -20,12 +20,16 @@ ROLES_FILE = os.path.join(DATA_DIR, "roles", "roles.json")
 CONVERSATIONS_FILE = os.path.join(DATA_DIR, "conversations", "conversations.json")
 BRANCHES_FILE = os.path.join(DATA_DIR, "timelines", "branches.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+USER_FILE = os.path.join(DATA_DIR, "user", "profile.json")
+JARVIS_FILE = os.path.join(DATA_DIR, "jarvis", "jarvis.json")
 
 
 def _ensure_dirs():
     os.makedirs(os.path.join(DATA_DIR, "roles"), exist_ok=True)
     os.makedirs(os.path.join(DATA_DIR, "conversations"), exist_ok=True)
     os.makedirs(os.path.join(DATA_DIR, "timelines"), exist_ok=True)
+    os.makedirs(os.path.join(DATA_DIR, "user"), exist_ok=True)
+    os.makedirs(os.path.join(DATA_DIR, "jarvis"), exist_ok=True)
 
 
 def _read_json(path: str) -> dict:
@@ -117,10 +121,53 @@ def _dict_to_role(d: dict) -> RoleAgent:
     except (ValueError, KeyError):
         d["relationship_status"] = RelationshipStatus.ACTIVE
 
-    # Only pass known fields
+    # Only pass known fields (handles new fields like core_memories / parallel_memories gracefully)
     known = set(RoleAgent.__dataclass_fields__.keys()) - {"personality", "role_relationships"}
     filtered = {k: v for k, v in d.items() if k in known}
     return RoleAgent(**filtered, personality=personality, role_relationships=role_relationships)
+
+
+# ─── Role Memory ──────────────────────────────────────────────────────────────
+
+def _make_memory_entry(content: str, source: str = "self") -> dict:
+    import uuid
+    return {
+        "id": str(uuid.uuid4()),
+        "content": content,
+        "source": source,   # "self" | "jarvis"
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+
+def add_role_memory(role_id: str, content: str, memory_type: str, source: str = "self") -> Optional[dict]:
+    """Add a core or parallel memory entry to a role. Returns the new entry or None if role not found."""
+    data = _read_json(ROLES_FILE)
+    if role_id not in data:
+        return None
+    entry = _make_memory_entry(content, source)
+    field = "core_memories" if memory_type == "core" else "parallel_memories"
+    data[role_id].setdefault(field, []).append(entry)
+    data[role_id]["updated_at"] = datetime.utcnow().isoformat()
+    _write_json(ROLES_FILE, data)
+    return entry
+
+
+def delete_role_memory(role_id: str, memory_id: str) -> bool:
+    """Delete a memory entry (core or parallel) from a role. Returns True if deleted."""
+    data = _read_json(ROLES_FILE)
+    if role_id not in data:
+        return False
+    changed = False
+    for field in ("core_memories", "parallel_memories"):
+        mems = data[role_id].get(field, [])
+        new_mems = [m for m in mems if m.get("id") != memory_id]
+        if len(new_mems) != len(mems):
+            data[role_id][field] = new_mems
+            data[role_id]["updated_at"] = datetime.utcnow().isoformat()
+            changed = True
+    if changed:
+        _write_json(ROLES_FILE, data)
+    return changed
 
 
 # ─── ConversationThread ───────────────────────────────────────────────────────
@@ -191,6 +238,124 @@ def list_branches(role_agent_id: str) -> list:
             d["status"] = BranchStatus(d["status"])
             result.append(SimulationBranch(**d))
     return result
+
+
+# ─── UserProfile ──────────────────────────────────────────────────────────────
+
+def get_user_profile() -> dict:
+    if not os.path.exists(USER_FILE):
+        return {
+            "name": "我", "bio": "", "birthday": None,
+            "occupation": None, "location": None,
+            "personality": {}, "memories": [],
+            "agent_model": None, "agent_system_prompt": "",
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+    return json.loads(open(USER_FILE, "r", encoding="utf-8").read())
+
+
+def save_user_profile(data: dict):
+    _ensure_dirs()
+    data["updated_at"] = datetime.utcnow().isoformat()
+    data.setdefault("created_at", datetime.utcnow().isoformat())
+    data.setdefault("memories", [])
+    with open(USER_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def add_user_memory(content: str, memory_type: str, source: str = "self") -> dict:
+    entry = _make_memory_entry(content, source)
+    entry["memory_type"] = memory_type
+    profile = get_user_profile()
+    profile.setdefault("memories", []).append(entry)
+    save_user_profile(profile)
+    return entry
+
+
+def delete_user_memory(memory_id: str) -> bool:
+    profile = get_user_profile()
+    mems = profile.get("memories", [])
+    new_mems = [m for m in mems if m.get("id") != memory_id]
+    if len(new_mems) == len(mems):
+        return False
+    profile["memories"] = new_mems
+    save_user_profile(profile)
+    return True
+
+
+def list_user_memories(memory_type: Optional[str] = None) -> list:
+    mems = get_user_profile().get("memories", [])
+    if memory_type:
+        mems = [m for m in mems if m.get("memory_type") == memory_type]
+    return mems
+
+
+# ─── Jarvis (memories + skills) ───────────────────────────────────────────────
+
+def get_jarvis_data() -> dict:
+    if not os.path.exists(JARVIS_FILE):
+        return {"memories": [], "skills": []}
+    return json.loads(open(JARVIS_FILE, "r", encoding="utf-8").read())
+
+
+def save_jarvis_data(data: dict):
+    _ensure_dirs()
+    with open(JARVIS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def add_jarvis_memory(content: str, source: str = "self") -> dict:
+    entry = _make_memory_entry(content, source)
+    d = get_jarvis_data()
+    d.setdefault("memories", []).append(entry)
+    save_jarvis_data(d)
+    return entry
+
+
+def delete_jarvis_memory(memory_id: str) -> bool:
+    d = get_jarvis_data()
+    mems = d.get("memories", [])
+    new_mems = [m for m in mems if m.get("id") != memory_id]
+    if len(new_mems) == len(mems):
+        return False
+    d["memories"] = new_mems
+    save_jarvis_data(d)
+    return True
+
+
+def add_jarvis_skill(name: str, description: str, instructions: str) -> dict:
+    skill = JarvisSkill(name=name, description=description, instructions=instructions)
+    entry = {
+        "id": skill.id, "name": skill.name,
+        "description": skill.description, "instructions": skill.instructions,
+        "active": skill.active, "created_at": skill.created_at,
+    }
+    d = get_jarvis_data()
+    d.setdefault("skills", []).append(entry)
+    save_jarvis_data(d)
+    return entry
+
+
+def toggle_jarvis_skill(skill_id: str) -> Optional[dict]:
+    d = get_jarvis_data()
+    for skill in d.get("skills", []):
+        if skill.get("id") == skill_id:
+            skill["active"] = not skill.get("active", True)
+            save_jarvis_data(d)
+            return skill
+    return None
+
+
+def delete_jarvis_skill(skill_id: str) -> bool:
+    d = get_jarvis_data()
+    skills = d.get("skills", [])
+    new_skills = [s for s in skills if s.get("id") != skill_id]
+    if len(new_skills) == len(skills):
+        return False
+    d["skills"] = new_skills
+    save_jarvis_data(d)
+    return True
 
 
 # ─── Settings ─────────────────────────────────────────────────────────────────

@@ -11,6 +11,10 @@ import { REL_TYPE_LABELS, REL_STATUS_COLORS } from '../types'
 import type { Role } from '../types'
 import { useStore } from '../store'
 
+interface Props {
+  onUserClick?: () => void
+}
+
 // Custom node: relationship role card
 function RoleNode({ data }: { data: any }) {
   const { role, onClick, isSelected } = data
@@ -67,7 +71,8 @@ function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: str
         background: '#6366f1', color: '#fff', borderRadius: '50%',
         width: 64, height: 64, display: 'flex', alignItems: 'center',
         justifyContent: 'center', fontWeight: 'bold', fontSize: 16,
-        border: '3px solid #818cf8',
+        border: '3px solid #818cf8', cursor: 'pointer',
+        boxShadow: '0 0 16px rgba(99,102,241,0.5)',
       },
     },
   ]
@@ -220,7 +225,7 @@ function buildGraph(roles: Role[], selectedId: string | null, onSelect: (id: str
   return { nodes, edges }
 }
 
-export default function RelationshipGraph() {
+export default function RelationshipGraph({ onUserClick }: Props) {
   const { roles, selectedRoleId, setSelectedRole } = useStore()
   const { nodes: initNodes, edges: initEdges } = buildGraph(roles, selectedRoleId, setSelectedRole)
   const [nodes, setNodes, onNodesChange] = useNodesState(initNodes)
@@ -234,6 +239,10 @@ export default function RelationshipGraph() {
 
   const onConnect = useCallback((c: Connection) => setEdges(eds => addEdge(c, eds)), [])
 
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    if (node.id === 'user') onUserClick?.()
+  }, [onUserClick])
+
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
@@ -241,6 +250,7 @@ export default function RelationshipGraph() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}

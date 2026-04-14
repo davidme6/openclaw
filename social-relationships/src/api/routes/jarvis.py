@@ -29,6 +29,17 @@ class PatchRoleRequest(BaseModel):
     updates: dict
 
 
+class AddSkillRequest(BaseModel):
+    name: str
+    description: str = ""
+    instructions: str
+
+
+class AddJarvisMemoryRequest(BaseModel):
+    content: str
+    source: str = "self"
+
+
 @router.post("/analyze")
 def analyze(req: AnalyzeRequest, jarvis: Jarvis = Depends(get_jarvis)):
     result = jarvis.analyze(req.question)
@@ -94,3 +105,68 @@ def patch_role(role_id: str, req: PatchRoleRequest):
             setattr(role, k, v)
     storage.save_role(role)
     return {"status": "updated"}
+
+
+# ── Jarvis 技能库 ────────────────────────────────────────────────────────────
+
+@router.get("/skills")
+def list_skills():
+    """列出贾维斯的所有技能"""
+    d = storage.get_jarvis_data()
+    return {"skills": d.get("skills", [])}
+
+
+@router.post("/skills")
+def add_skill(req: AddSkillRequest):
+    """安装新技能到贾维斯"""
+    if not req.name.strip():
+        raise HTTPException(400, "技能名称不能为空")
+    if not req.instructions.strip():
+        raise HTTPException(400, "技能指导内容不能为空")
+    skill = storage.add_jarvis_skill(req.name.strip(), req.description.strip(), req.instructions.strip())
+    return skill
+
+
+@router.patch("/skills/{skill_id}/toggle")
+def toggle_skill(skill_id: str):
+    """激活/停用某个技能"""
+    skill = storage.toggle_jarvis_skill(skill_id)
+    if not skill:
+        raise HTTPException(404, "技能不存在")
+    return skill
+
+
+@router.delete("/skills/{skill_id}")
+def delete_skill(skill_id: str):
+    """卸载技能"""
+    deleted = storage.delete_jarvis_skill(skill_id)
+    if not deleted:
+        raise HTTPException(404, "技能不存在")
+    return {"status": "deleted", "id": skill_id}
+
+
+# ── Jarvis 自身记忆 ────────────────────────────────────────────────────────────
+
+@router.get("/memories")
+def list_jarvis_memories():
+    """列出贾维斯的记忆"""
+    d = storage.get_jarvis_data()
+    return {"memories": d.get("memories", [])}
+
+
+@router.post("/memories")
+def add_jarvis_memory(req: AddJarvisMemoryRequest):
+    """向贾维斯添加记忆"""
+    if not req.content.strip():
+        raise HTTPException(400, "记忆内容不能为空")
+    entry = storage.add_jarvis_memory(req.content.strip(), req.source)
+    return entry
+
+
+@router.delete("/memories/{memory_id}")
+def delete_jarvis_memory(memory_id: str):
+    """删除贾维斯的记忆"""
+    deleted = storage.delete_jarvis_memory(memory_id)
+    if not deleted:
+        raise HTTPException(404, "记忆不存在")
+    return {"status": "deleted", "id": memory_id}

@@ -5,7 +5,7 @@ Run: uvicorn src.api.main:app --reload --port 8000
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import roles, chat, simulation, jarvis, settings
+from .routes import roles, chat, simulation, jarvis, settings, user
 
 app = FastAPI(
     title="Social Relationships API",
@@ -25,6 +25,7 @@ app.include_router(chat.router)
 app.include_router(simulation.router)
 app.include_router(jarvis.router)
 app.include_router(settings.router)
+app.include_router(user.router)
 
 
 @app.get("/health")

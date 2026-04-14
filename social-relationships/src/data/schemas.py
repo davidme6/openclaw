@@ -67,6 +67,8 @@ class RoleAgent:
     社会关系角色，支持无限嵌套层级。
     通过 parent_role_id 实现任意深度的树形结构，
     通过 role_relationships 实现任意节点间的关系连线。
+    核心记忆（core_memories）直接影响角色扮演行为；
+    平行记忆（parallel_memories）独立沙盒，不影响扮演。
     """
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
@@ -82,13 +84,17 @@ class RoleAgent:
     relationship_started: Optional[str] = None
     key_events: list = field(default_factory=list)
 
+    # ── 记忆系统 ────────────────────────────────────────────────────────────
+    # 核心记忆：客观事实，直接注入 system prompt，影响角色行为
+    core_memories: list = field(default_factory=list)
+    # 平行记忆：娱乐/推演/主观内容，独立存储，不影响角色扮演
+    parallel_memories: list = field(default_factory=list)
+
     # ── 层级关系 (无限深度) ──────────────────────────────────────────────────
     parent_role_id: Optional[str] = None   # 父角色 ID，None = 顶层角色
     connected_to_user: bool = True         # 是否与用户有直接关系
 
     # ── 关系连线 (任意节点间) ────────────────────────────────────────────────
-    # 每条 RoleRelationship 描述「此角色 → 某节点」的连线样式
-    # 可以是 → user，也可以是 → 任何其他角色（包括跨层级）
     role_relationships: list = field(default_factory=list)
 
     # 元数据
@@ -110,6 +116,12 @@ class RoleAgent:
         return depth
 
     def to_system_prompt(self) -> str:
+        core_mem_text = ""
+        if self.core_memories:
+            lines = "\n".join(f"- {m.get('content', m) if isinstance(m, dict) else m}"
+                              for m in self.core_memories)
+            core_mem_text = f"\n## 核心记忆（已验证的现实事实，必须遵守）\n{lines}\n"
+
         prompt = f"""你正在扮演 {self.name}，请严格按照以下信息回应，不要跳出角色。
 
 ## 基本信息
@@ -134,11 +146,12 @@ class RoleAgent:
 
 ## 关系重要节点
 {chr(10).join(f'- {e}' for e in self.key_events) if self.key_events else '暂无记录'}
-
+{core_mem_text}
 ## 行为准则
 1. 始终以第一人称回应，用符合你性格的语气说话
 2. 你不知道自己是 AI，你就是 {self.name}
 3. 情绪反应要符合你的性格特征和当前关系状态
+4. 核心记忆中的事实必须完全体现在你的行为和态度中
 """
         return prompt
 
@@ -194,3 +207,56 @@ class ModelSettings:
     api_key: str = ""
     base_url: str = ""
     model_registry: list = field(default_factory=list)  # list of ModelEntry dicts
+
+
+@dataclass
+class JarvisSkill:
+    """
+    贾维斯技能卡——安装后注入到 Jarvis 系统提示，扩展其专业能力。
+    例如：情感大师、心理专家、沟通策略师等。
+    """
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = ""               # 技能名称，如"情感大师"
+    description: str = ""        # 简短描述
+    instructions: str = ""       # 注入到系统提示的具体指导内容
+    active: bool = True          # 是否已激活
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+class MemoryType(str, Enum):
+    CORE = "core"          # 核心记忆：真实数据，影响全局关系与推演
+    PARALLEL = "parallel"  # 平行记忆：模拟/娱乐，独立沙盒不影响现实
+
+
+class MemorySource(str, Enum):
+    SELF = "self"          # 用户本人添加
+    JARVIS = "jarvis"      # 贾维斯导入
+
+
+@dataclass
+class UserMemory:
+    """用户自己的记忆条目（核心或平行）"""
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    content: str = ""
+    memory_type: MemoryType = MemoryType.CORE
+    source: MemorySource = MemorySource.SELF
+    tags: list = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+@dataclass
+class UserProfile:
+    """
+    以用户为中心的自身档案。
+    核心记忆影响 Jarvis 全局分析和推演；
+    平行记忆独立沙盒，不对现实关系产生影响。
+    """
+    name: str = "我"
+    bio: str = ""
+    birthday: Optional[str] = None
+    occupation: Optional[str] = None
+    location: Optional[str] = None
+    personality: PersonalityModel = field(default_factory=PersonalityModel)
+    memories: list = field(default_factory=list)  # list of UserMemory dicts
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())

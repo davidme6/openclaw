@@ -69,6 +69,12 @@ class ImportHistoryRequest(BaseModel):
     messages: list[dict]
 
 
+class AddMemoryRequest(BaseModel):
+    content: str
+    memory_type: str = "core"   # "core" | "parallel"
+    source: str = "self"        # "self" | "jarvis"
+
+
 def _role_to_dict(role) -> dict:
     rels = [
         {"target_role_id": r.target_role_id, "label": r.label, "dashed": r.dashed, "curve": r.curve}
@@ -97,6 +103,8 @@ def _role_to_dict(role) -> dict:
         "parent_role_id": role.parent_role_id,
         "connected_to_user": role.connected_to_user,
         "role_relationships": rels,
+        "core_memories": role.core_memories or [],
+        "parallel_memories": role.parallel_memories or [],
         "created_at": role.created_at,
         "updated_at": role.updated_at,
     }
@@ -195,3 +203,30 @@ def special_dates(role_id: str):
     if not role:
         raise HTTPException(404, "Role not found")
     return {"key_events": role.key_events, "relationship_started": role.relationship_started}
+
+
+@router.post("/{role_id}/memories")
+def add_memory(role_id: str, req: AddMemoryRequest):
+    """
+    添加核心或平行记忆。
+    核心记忆（core）：必须是客观事实，直接影响角色扮演行为。
+    平行记忆（parallel）：娱乐/推演内容，不影响角色扮演。
+    """
+    if req.memory_type not in ("core", "parallel"):
+        raise HTTPException(400, "memory_type 必须为 'core' 或 'parallel'")
+    if not req.content.strip():
+        raise HTTPException(400, "记忆内容不能为空")
+    role = storage.get_role(role_id)
+    if not role:
+        raise HTTPException(404, "Role not found")
+    entry = storage.add_role_memory(role_id, req.content.strip(), req.memory_type, req.source)
+    return entry
+
+
+@router.delete("/{role_id}/memories/{memory_id}")
+def delete_memory(role_id: str, memory_id: str):
+    """删除角色的某条记忆（核心或平行均可删除）"""
+    deleted = storage.delete_role_memory(role_id, memory_id)
+    if not deleted:
+        raise HTTPException(404, "记忆条目不存在")
+    return {"status": "deleted", "id": memory_id}

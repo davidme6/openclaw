@@ -1,13 +1,13 @@
 /**
  * RoleModal — unified create / edit modal.
  * Supports selecting any existing role (at any depth) as parent,
- * enabling unlimited hierarchy nesting.
+ * memory management (core / parallel), and unlimited hierarchy nesting.
  */
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { rolesApi } from '../api/client'
 import { REL_TYPE_LABELS } from '../types'
-import type { Role, RelationshipType, RelationshipStatus } from '../types'
+import type { Role, RelationshipType, RelationshipStatus, RoleMemory } from '../types'
 
 interface Props {
   role?: Role            // existing role to edit
@@ -43,7 +43,7 @@ function buildFlatTree(roles: Role[], excludeId?: string): { role: Role; depth: 
   const result: { role: Role; depth: number; label: string }[] = []
 
   function walk(role: Role, depth: number) {
-    if (role.id === excludeId) return  // can't be own parent
+    if (role.id === excludeId) return
     const prefix = depth === 0 ? '' : '　'.repeat(depth) + '└ '
     result.push({ role, depth, label: prefix + role.name })
     for (const child of (childrenOf.get(role.id) || [])) {
@@ -55,6 +55,126 @@ function buildFlatTree(roles: Role[], excludeId?: string): { role: Role; depth: 
   return result
 }
 
+// ── Memory section sub-component ──────────────────────────────────────────────
+function MemorySection({
+  roleId,
+  memoryType,
+  memories,
+  onAdded,
+  onDeleted,
+}: {
+  roleId: string
+  memoryType: 'core' | 'parallel'
+  memories: RoleMemory[]
+  onAdded: (m: RoleMemory) => void
+  onDeleted: (id: string) => void
+}) {
+  const [text, setText] = useState('')
+  const [showWarning, setShowWarning] = useState(false)
+  const pendingRef = useRef('')
+
+  const addMutation = useMutation({
+    mutationFn: (content: string) => rolesApi.addMemory(roleId, content, memoryType),
+    onSuccess: (data) => { onAdded(data); setText('') },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (memId: string) => rolesApi.deleteMemory(roleId, memId),
+    onSuccess: (_, memId) => onDeleted(memId),
+  })
+
+  const handleAdd = () => {
+    if (!text.trim()) return
+    if (memoryType === 'core') {
+      pendingRef.current = text.trim()
+      setShowWarning(true)
+    } else {
+      addMutation.mutate(text.trim())
+    }
+  }
+
+  const confirmCore = () => {
+    setShowWarning(false)
+    addMutation.mutate(pendingRef.current)
+  }
+
+  const isCore = memoryType === 'core'
+
+  return (
+    <div>
+      {/* Core memory warning dialog */}
+      {showWarning && (
+        <div className="memory-warn-overlay">
+          <div className="memory-warn-box">
+            <div className="memory-warn-icon">⚠️</div>
+            <div className="memory-warn-title">核心记忆导入确认</div>
+            <div className="memory-warn-body">
+              核心记忆将直接影响角色的扮演行为。<br />
+              请确认以下内容：
+              <ul>
+                <li>这是<strong>客观事实</strong>，而非主观判断</li>
+                <li>这是<strong>现实中真实发生</strong>的，而非假设或推演</li>
+                <li>错误的核心记忆会导致角色偏离现实</li>
+              </ul>
+              <div className="memory-warn-preview">「{pendingRef.current}」</div>
+            </div>
+            <div className="memory-warn-actions">
+              <button className="modal-cancel-btn" onClick={() => setShowWarning(false)}>取消</button>
+              <button className="modal-confirm-btn" onClick={confirmCore}>确认导入</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Memory list */}
+      <div className="memory-list">
+        {memories.length === 0 ? (
+          <div className="memory-empty">暂无{isCore ? '核心' : '平行'}记忆</div>
+        ) : (
+          memories.map(m => (
+            <div key={m.id} className="memory-item">
+              <span className={`memory-source-badge ${m.source}`}>
+                {m.source === 'jarvis' ? '贾维斯' : '我'}
+              </span>
+              <span className="memory-content">{m.content}</span>
+              <button
+                className="memory-del-btn"
+                onClick={() => deleteMutation.mutate(m.id)}
+                disabled={deleteMutation.isPending}
+                title="删除"
+              >✕</button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Add new */}
+      <div className="memory-add-row">
+        <textarea
+          className="modal-textarea"
+          rows={2}
+          placeholder={isCore
+            ? '输入客观事实（如：他去年3月出轨过）...'
+            : '输入任何记忆（如：我们在游戏里组队打怪）...'}
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
+        <button
+          className={`memory-add-btn ${isCore ? 'core' : 'parallel'}`}
+          onClick={handleAdd}
+          disabled={!text.trim() || addMutation.isPending}
+        >
+          {addMutation.isPending ? '添加中...' : `+ 添加${isCore ? '核心' : '平行'}记忆`}
+        </button>
+      </div>
+      {addMutation.isError && (
+        <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 4 }}>添加失败，请重试</div>
+      )}
+    </div>
+  )
+}
+
+// ── Main modal ─────────────────────────────────────────────────────────────────
 export default function RoleModal({ role, parentRole, onClose }: Props) {
   const qc = useQueryClient()
   const isEditing = !!role
@@ -81,6 +201,10 @@ export default function RoleModal({ role, parentRole, onClose }: Props) {
     connected_to_user: role?.connected_to_user ?? true,
   })
 
+  // Local memory state (editable list for existing roles)
+  const [coreMemories, setCoreMemories] = useState<RoleMemory[]>(role?.core_memories ?? [])
+  const [parallelMemories, setParallelMemories] = useState<RoleMemory[]>(role?.parallel_memories ?? [])
+
   const set = (key: string, val: string | boolean) =>
     setForm(prev => ({ ...prev, [key]: val }))
 
@@ -101,13 +225,12 @@ export default function RoleModal({ role, parentRole, onClose }: Props) {
     const personality: any = {}
     if (form.mbti) personality.mbti = form.mbti
     if (form.speaking_style) personality.speaking_style = form.speaking_style.trim()
-    if (form.values) personality.values = form.values.split(/[，,]/).map(s => s.trim()).filter(Boolean)
-    if (form.triggers) personality.triggers = form.triggers.split(/[，,]/).map(s => s.trim()).filter(Boolean)
+    if (form.values) personality.values = form.values.split(/[，,、]/).map(s => s.trim()).filter(Boolean)
+    if (form.triggers) personality.triggers = form.triggers.split(/[，,、]/).map(s => s.trim()).filter(Boolean)
     if (form.love_language) personality.love_language = form.love_language.trim()
     if (form.background) personality.background = form.background.trim()
     if (Object.keys(personality).length > 0) payload.personality = personality
 
-    // Preserve existing role_relationships when editing
     if (isEditing && role?.role_relationships) {
       payload.role_relationships = role.role_relationships
     }
@@ -129,13 +252,11 @@ export default function RoleModal({ role, parentRole, onClose }: Props) {
   })
 
   const valid = form.name.trim().length > 0
-
-  // Show the parent role's chain path
   const selectedParent = allRoles.find(r => r.id === form.parent_role_id)
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal modal-wide">
         <div className="modal-header">
           <h2 className="modal-title">
             {isEditing ? `编辑「${role.name}」` : parentRole ? `添加 ${parentRole.name} 的关联角色` : '添加关系角色'}
@@ -276,6 +397,45 @@ export default function RoleModal({ role, parentRole, onClose }: Props) {
                 value={form.background} onChange={e => set('background', e.target.value)} />
             </div>
           </div>
+
+          {/* 记忆系统 — 仅编辑已存在角色时显示 */}
+          {isEditing && (
+            <>
+              <div className="modal-section">
+                <div className="modal-section-title">
+                  核心记忆
+                  <span className="memory-type-badge core">影响扮演</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                  仅存入<strong style={{ color: 'var(--amber)' }}>客观事实</strong>。核心记忆直接注入角色系统提示，影响 ta 的行为和态度。
+                </div>
+                <MemorySection
+                  roleId={role!.id}
+                  memoryType="core"
+                  memories={coreMemories}
+                  onAdded={m => setCoreMemories(prev => [...prev, m])}
+                  onDeleted={id => setCoreMemories(prev => prev.filter(m => m.id !== id))}
+                />
+              </div>
+
+              <div className="modal-section">
+                <div className="modal-section-title">
+                  平行记忆
+                  <span className="memory-type-badge parallel">独立沙盒</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                  娱乐互动、推演记录、主观感受等。独立存储，<strong style={{ color: 'var(--neon-purple)' }}>不影响</strong>角色扮演行为。
+                </div>
+                <MemorySection
+                  roleId={role!.id}
+                  memoryType="parallel"
+                  memories={parallelMemories}
+                  onAdded={m => setParallelMemories(prev => [...prev, m])}
+                  onDeleted={id => setParallelMemories(prev => prev.filter(m => m.id !== id))}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="modal-footer">

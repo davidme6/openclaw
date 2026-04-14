@@ -1610,3 +1610,305 @@ body {
   background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
 }
 .model-dialog-type-btn:hover:not(.active) { border-color: var(--accent); color: var(--text1); }
+
+/* ===================================================================
+   MEMORY SYSTEM — core/parallel memory items, warnings, badges
+   =================================================================== */
+
+/* ── Memory item (shared by RoleModal + UserProfileModal) ── */
+.memory-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 260px; overflow-y: auto;
+  margin-bottom: 10px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.memory-list::-webkit-scrollbar { width: 4px; }
+.memory-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.memory-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px; line-height: 1.5;
+  transition: border-color 0.15s;
+}
+.memory-item:hover { border-color: var(--border-light); }
+
+.memory-source-badge {
+  flex-shrink: 0; padding: 1px 7px;
+  border-radius: 10px; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.memory-source-badge.self {
+  background: rgba(99,102,241,0.15); color: var(--accent);
+  border: 1px solid rgba(99,102,241,0.3);
+}
+.memory-source-badge.jarvis {
+  background: rgba(139,92,246,0.15); color: var(--neon-purple);
+  border: 1px solid rgba(139,92,246,0.3);
+}
+
+.memory-content { flex: 1; color: var(--text); word-break: break-all; }
+.memory-date { flex-shrink: 0; font-size: 11px; color: var(--text3); }
+.memory-del-btn {
+  flex-shrink: 0; background: none; border: none;
+  color: var(--text3); cursor: pointer; font-size: 12px;
+  padding: 0 2px; border-radius: 3px; line-height: 1;
+  transition: color 0.15s;
+}
+.memory-del-btn:hover:not(:disabled) { color: var(--red); }
+
+.memory-empty {
+  padding: 16px 0; text-align: center;
+  color: var(--text3); font-size: 12px;
+}
+
+.memory-add-row {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 4px;
+}
+.memory-add-btn {
+  align-self: flex-end; padding: 6px 14px;
+  border-radius: var(--radius-sm); border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.memory-add-btn.core {
+  background: rgba(245,158,11,0.15); color: var(--amber);
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.memory-add-btn.core:hover:not(:disabled) { background: rgba(245,158,11,0.25); }
+.memory-add-btn.parallel {
+  background: rgba(139,92,246,0.15); color: var(--neon-purple);
+  border: 1px solid rgba(139,92,246,0.3);
+}
+.memory-add-btn.parallel:hover:not(:disabled) { background: rgba(139,92,246,0.25); }
+.memory-add-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Memory type badge (inline label) */
+.memory-type-badge {
+  display: inline-block; margin-left: 8px;
+  padding: 1px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+.memory-type-badge.core {
+  background: rgba(245,158,11,0.15); color: var(--amber);
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.memory-type-badge.parallel {
+  background: rgba(139,92,246,0.15); color: var(--neon-purple);
+  border: 1px solid rgba(139,92,246,0.3);
+}
+
+/* Descriptive text below memory section title */
+.memory-desc {
+  font-size: 12px; color: var(--text3); margin-bottom: 12px;
+  line-height: 1.6;
+}
+.memory-desc strong { color: var(--text2); }
+
+/* ── Core memory warning overlay ── */
+.memory-warn-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.memory-warn-box {
+  background: var(--bg2); border: 1px solid var(--amber);
+  border-radius: 14px; padding: 24px; max-width: 420px; width: 100%;
+  box-shadow: 0 0 40px rgba(245,158,11,0.2);
+}
+.memory-warn-icon { font-size: 32px; text-align: center; margin-bottom: 8px; }
+.memory-warn-title {
+  font-size: 16px; font-weight: 700; color: var(--amber);
+  text-align: center; margin-bottom: 12px;
+}
+.memory-warn-body {
+  font-size: 13px; color: var(--text2); line-height: 1.7;
+  margin-bottom: 12px;
+}
+.memory-warn-body ul { margin: 8px 0 8px 16px; }
+.memory-warn-body strong { color: var(--red); }
+.memory-warn-preview {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  font-size: 13px; color: var(--text); margin-top: 8px;
+  word-break: break-all;
+}
+.memory-warn-actions {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;
+}
+
+/* ===================================================================
+   USER PROFILE MODAL
+   =================================================================== */
+.user-profile-crown { margin-right: 6px; font-size: 16px; }
+.user-profile-badge {
+  display: inline-block; margin-left: 8px;
+  padding: 2px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
+  color: var(--accent); border: 1px solid rgba(99,102,241,0.3);
+  vertical-align: middle;
+}
+
+.user-profile-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; overflow-x: auto;
+}
+.user-profile-tab {
+  flex: 1; min-width: 80px;
+  padding: 10px 8px; background: none; border: none;
+  color: var(--text3); cursor: pointer; font-size: 12px;
+  font-weight: 500; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s; display: flex; align-items: center;
+  justify-content: center; gap: 4px;
+}
+.user-profile-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.user-profile-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.mem-count {
+  background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 0 5px; border-radius: 8px; min-width: 16px;
+  text-align: center; line-height: 16px;
+}
+
+/* ── Topbar profile button ── */
+.topbar-me-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
+  border: 1px solid rgba(99,102,241,0.35);
+  color: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: all 0.2s;
+}
+.topbar-me-btn:hover {
+  background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.25));
+  box-shadow: 0 0 12px rgba(99,102,241,0.25);
+}
+
+/* ===================================================================
+   JARVIS SKILLS PANEL
+   =================================================================== */
+.skills-panel {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; padding: 0;
+}
+.skills-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.skills-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.skills-desc { font-size: 11px; color: var(--text3); line-height: 1.5; }
+.skills-add-trigger {
+  padding: 6px 12px; background: var(--accent);
+  border: none; border-radius: var(--radius-sm);
+  color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0; transition: background 0.15s;
+}
+.skills-add-trigger:hover { background: var(--accent-hover); }
+
+.skill-form {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+  background: rgba(99,102,241,0.04);
+}
+.skill-form-row { display: flex; }
+.skill-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  padding: 7px 10px; font-size: 13px; outline: none; font-family: inherit;
+}
+.skill-input:focus { border-color: var(--accent); }
+.skill-textarea {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  padding: 7px 10px; font-size: 13px; outline: none; font-family: inherit;
+  resize: vertical;
+}
+.skill-textarea:focus { border-color: var(--accent); }
+.skill-confirm-btn {
+  align-self: flex-end; padding: 7px 16px;
+  background: var(--accent); border: none; border-radius: var(--radius-sm);
+  color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s;
+}
+.skill-confirm-btn:hover:not(:disabled) { background: var(--accent-hover); }
+.skill-confirm-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.skills-list {
+  flex: 1; overflow-y: auto; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.skills-list::-webkit-scrollbar { width: 4px; }
+.skills-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.skills-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--text3); font-size: 13px; padding: 40px 0;
+}
+
+.skill-item {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+  transition: border-color 0.15s;
+}
+.skill-item.active { border-color: rgba(99,102,241,0.35); }
+.skill-item.inactive { opacity: 0.55; }
+
+.skill-item-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.skill-item-name {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text);
+}
+.skill-status-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.skill-status-dot.on { background: var(--green); }
+.skill-status-dot.off { background: var(--text3); }
+
+.skill-badge {
+  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 8px;
+}
+.skill-badge.active { background: rgba(34,197,94,0.15); color: var(--green); }
+.skill-badge.inactive { background: var(--bg4); color: var(--text3); }
+
+.skill-item-actions { display: flex; align-items: center; gap: 6px; }
+.skill-toggle-btn {
+  padding: 3px 10px; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1px solid; transition: all 0.15s;
+}
+.skill-toggle-btn.deactivate {
+  background: none; border-color: var(--border); color: var(--text3);
+}
+.skill-toggle-btn.deactivate:hover { border-color: var(--amber); color: var(--amber); }
+.skill-toggle-btn.activate {
+  background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: var(--accent);
+}
+.skill-toggle-btn.activate:hover { background: rgba(99,102,241,0.2); }
+.skill-del-btn {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; font-size: 14px; padding: 0 2px;
+  transition: color 0.15s;
+}
+.skill-del-btn:hover:not(:disabled) { color: var(--red); }
+
+.skill-item-desc { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.skill-item-instructions {
+  font-size: 12px; color: var(--text2); line-height: 1.6;
+  white-space: pre-wrap; word-break: break-all;
+  max-height: 80px; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+}

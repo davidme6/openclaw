@@ -15,6 +15,11 @@ export const rolesApi = {
   importHistory: (id: string, messages: any[]) =>
     api.post(`/roles/${id}/import-history`, { messages }).then(r => r.data),
   specialDates: (id: string) => api.get(`/roles/${id}/special-dates`).then(r => r.data),
+  // Memory management
+  addMemory: (id: string, content: string, memoryType: 'core' | 'parallel', source: 'self' | 'jarvis' = 'self') =>
+    api.post(`/roles/${id}/memories`, { content, memory_type: memoryType, source }).then(r => r.data),
+  deleteMemory: (id: string, memoryId: string) =>
+    api.delete(`/roles/${id}/memories/${memoryId}`).then(r => r.data),
 }
 
 // Chat
@@ -81,6 +86,31 @@ export const jarvisApi = {
     api.post(`/jarvis/roles/${roleId}/memory`, { messages }).then(r => r.data),
   updateRole: (roleId: string, updates: Record<string, any>) =>
     api.patch(`/jarvis/roles/${roleId}`, { updates }).then(r => r.data),
+  // Skills
+  listSkills: () => api.get('/jarvis/skills').then(r => r.data),
+  addSkill: (name: string, description: string, instructions: string) =>
+    api.post('/jarvis/skills', { name, description, instructions }).then(r => r.data),
+  toggleSkill: (skillId: string) =>
+    api.patch(`/jarvis/skills/${skillId}/toggle`).then(r => r.data),
+  deleteSkill: (skillId: string) =>
+    api.delete(`/jarvis/skills/${skillId}`).then(r => r.data),
+  // Jarvis own memories
+  listMemories: () => api.get('/jarvis/memories').then(r => r.data),
+  addMemory: (content: string) =>
+    api.post('/jarvis/memories', { content }).then(r => r.data),
+  deleteMemory: (id: string) =>
+    api.delete(`/jarvis/memories/${id}`).then(r => r.data),
+}
+
+// User (self) profile
+export const userApi = {
+  getProfile: () => api.get('/user/profile').then(r => r.data),
+  updateProfile: (data: any) => api.put('/user/profile', data).then(r => r.data),
+  addMemory: (content: string, memoryType: 'core' | 'parallel', source: 'self' | 'jarvis' = 'self') =>
+    api.post('/user/memories', { content, memory_type: memoryType, source }).then(r => r.data),
+  deleteMemory: (id: string) => api.delete(`/user/memories/${id}`).then(r => r.data),
+  listMemories: (type?: string) =>
+    api.get('/user/memories', { params: type ? { type } : {} }).then(r => r.data),
 }
 
 // Settings

@@ -1,11 +1,13 @@
-// Jarvis Panel — 三模式：日常对话 | 全局分析 | 单角色分析
+// Jarvis Panel — 四模式：日常对话 | 全局分析 | 单角色分析 | 技能库
 // 支持：文字 | 图片上传/粘贴 | 语音输入 | 文件导入
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { jarvisApi, settingsApi } from '../api/client'
 import { useStore } from '../store'
 import CallModal from './CallModal'
+import type { JarvisSkill } from '../types'
 
-type Mode = 'chat' | 'global' | 'role'
+type Mode = 'chat' | 'global' | 'role' | 'skills'
 
 interface ChatMsg {
   role: 'user' | 'jarvis' | 'error'
@@ -44,6 +46,136 @@ function saveChatHistory(history: ChatMsg[]) {
     const trimmed = history.slice(-MAX_STORED_MSGS)
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(trimmed))
   } catch {}
+}
+
+// ── Skills panel sub-component ────────────────────────────────────────────────
+function SkillsPanel() {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({ name: '', description: '', instructions: '' })
+  const [showForm, setShowForm] = useState(false)
+
+  const { data: skillsData, isLoading } = useQuery({
+    queryKey: ['jarvisSkills'],
+    queryFn: jarvisApi.listSkills,
+  })
+
+  const skills: JarvisSkill[] = skillsData?.skills ?? []
+
+  const addMutation = useMutation({
+    mutationFn: () => jarvisApi.addSkill(form.name.trim(), form.description.trim(), form.instructions.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['jarvisSkills'] })
+      setForm({ name: '', description: '', instructions: '' })
+      setShowForm(false)
+    },
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) => jarvisApi.toggleSkill(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['jarvisSkills'] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => jarvisApi.deleteSkill(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['jarvisSkills'] }),
+  })
+
+  return (
+    <div className="skills-panel">
+      <div className="skills-header">
+        <div>
+          <div className="skills-title">🧩 贾维斯技能库</div>
+          <div className="skills-desc">安装技能卡后，Jarvis 将在每次分析时运用对应的专业能力。</div>
+        </div>
+        <button className="skills-add-trigger" onClick={() => setShowForm(f => !f)}>
+          {showForm ? '取消' : '+ 安装技能'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="skill-form">
+          <div className="skill-form-row">
+            <input
+              className="skill-input" placeholder="技能名称（如：情感大师）"
+              value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            />
+          </div>
+          <div className="skill-form-row">
+            <input
+              className="skill-input" placeholder="简短描述（可选）"
+              value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+          <div className="skill-form-row">
+            <textarea
+              className="skill-textarea" rows={4}
+              placeholder="技能指导内容（注入到 Jarvis 的系统提示）&#10;例如：在分析情感关系时，请用依恋理论（焦虑型、回避型、安全型）框架解读行为模式..."
+              value={form.instructions}
+              onChange={e => setForm(f => ({ ...f, instructions: e.target.value }))}
+            />
+          </div>
+          <button
+            className="skill-confirm-btn"
+            onClick={() => addMutation.mutate()}
+            disabled={!form.name.trim() || !form.instructions.trim() || addMutation.isPending}
+          >
+            {addMutation.isPending ? '安装中...' : '✓ 确认安装'}
+          </button>
+          {addMutation.isError && (
+            <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 4 }}>安装失败</div>
+          )}
+        </div>
+      )}
+
+      <div className="skills-list">
+        {isLoading ? (
+          <div className="skills-empty">加载中...</div>
+        ) : skills.length === 0 ? (
+          <div className="skills-empty">
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🧩</div>
+            <div>还没有安装任何技能</div>
+            <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text3)' }}>
+              安装技能后 Jarvis 将获得专项专业能力
+            </div>
+          </div>
+        ) : (
+          skills.map(s => (
+            <div key={s.id} className={`skill-item ${s.active ? 'active' : 'inactive'}`}>
+              <div className="skill-item-header">
+                <div className="skill-item-name">
+                  <span className={`skill-status-dot ${s.active ? 'on' : 'off'}`} />
+                  {s.name}
+                  <span className={`skill-badge ${s.active ? 'active' : 'inactive'}`}>
+                    {s.active ? '已激活' : '已停用'}
+                  </span>
+                </div>
+                <div className="skill-item-actions">
+                  <button
+                    className={`skill-toggle-btn ${s.active ? 'deactivate' : 'activate'}`}
+                    onClick={() => toggleMutation.mutate(s.id)}
+                    disabled={toggleMutation.isPending}
+                    title={s.active ? '停用技能' : '激活技能'}
+                  >
+                    {s.active ? '停用' : '激活'}
+                  </button>
+                  <button
+                    className="skill-del-btn"
+                    onClick={() => { if (confirm(`确认卸载技能「${s.name}」？`)) deleteMutation.mutate(s.id) }}
+                    disabled={deleteMutation.isPending}
+                    title="卸载技能"
+                  >
+                    🗑
+                  </button>
+                </div>
+              </div>
+              {s.description && <div className="skill-item-desc">{s.description}</div>}
+              <div className="skill-item-instructions">{s.instructions}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function JarvisPanel() {
@@ -420,6 +552,10 @@ export default function JarvisPanel() {
           title={!selectedRoleId ? '请先选择一个角色' : ''}>
           👤 {selectedRole ? selectedRole.name : '角色分析'}
         </button>
+        <button className={`jarvis-mode-btn ${mode === 'skills' ? 'active' : ''}`}
+          onClick={() => setMode('skills')}>
+          🧩 技能库
+        </button>
       </div>
 
       {/* ── 日常对话 UI ── */}
@@ -730,6 +866,11 @@ export default function JarvisPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── 技能库 UI ── */}
+      {mode === 'skills' && (
+        <SkillsPanel />
       )}
     </div>
   )

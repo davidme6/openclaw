@@ -7,11 +7,32 @@ export type RelationshipStatus = 'active' | 'strained' | 'distant' | 'ended' | '
 
 export type BranchStatus = 'active' | 'merged' | 'abandoned'
 
+export type MemoryType = 'core' | 'parallel'
+export type MemorySource = 'self' | 'jarvis'
+
 export interface RoleRelationship {
   target_role_id: string   // "user" or another role's id
   label?: string
   dashed?: boolean         // false = solid (direct), true = dashed (indirect)
   curve?: number
+}
+
+/** A single memory entry used by roles and the user */
+export interface RoleMemory {
+  id: string
+  content: string
+  source: MemorySource
+  created_at: string
+}
+
+/** Jarvis skill card */
+export interface JarvisSkill {
+  id: string
+  name: string
+  description: string
+  instructions: string
+  active: boolean
+  created_at: string
 }
 
 export interface Role {
@@ -34,6 +55,9 @@ export interface Role {
   }
   key_events?: string[]
   relationship_started?: string
+  // Memory system
+  core_memories?: RoleMemory[]
+  parallel_memories?: RoleMemory[]
   // Hierarchy — unlimited depth
   parent_role_id?: string | null
   connected_to_user?: boolean
@@ -56,6 +80,34 @@ export interface Branch {
   description: string
   status: BranchStatus
   created_at: string
+}
+
+/** User memory entry (includes memory_type since user has core/parallel split) */
+export interface UserMemory extends RoleMemory {
+  memory_type: MemoryType
+}
+
+/** User's own profile (highest permission tier) */
+export interface UserProfile {
+  name: string
+  bio?: string
+  birthday?: string
+  occupation?: string
+  location?: string
+  personality?: {
+    mbti?: string
+    speaking_style?: string
+    values?: string[]
+    triggers?: string[]
+    love_language?: string
+    background?: string
+  }
+  memories?: UserMemory[]
+  // Optional: agent model for "virtual me" simulation
+  agent_model?: string
+  agent_system_prompt?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export const REL_TYPE_LABELS: Record<RelationshipType, string> = {

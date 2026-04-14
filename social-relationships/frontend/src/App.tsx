@@ -12,6 +12,7 @@ import SimulationPanel from './components/SimulationPanel'
 import JarvisPanel from './components/JarvisPanel'
 import RoleModal from './components/RoleModal'
 import SettingsModal from './components/SettingsModal'
+import UserProfileModal from './components/UserProfileModal'
 import StarfieldBackground from './components/StarfieldBackground'
 import { staggerFadeIn, fadeIn } from './utils/animations'
 
@@ -125,6 +126,7 @@ export default function App() {
   const [showAddRole, setShowAddRole] = useState(false)
   const [editingRole, setEditingRole] = useState<Role | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showUserProfile, setShowUserProfile] = useState(false)
   const [addSubRoleParent, setAddSubRoleParent] = useState<Role | null>(null)
   
   // 侧边栏宽度状态
@@ -254,6 +256,9 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-right">
+          <button className="topbar-me-btn" onClick={() => setShowUserProfile(true)} title="我的档案">
+            👑 我的档案
+          </button>
           <button className="topbar-settings-btn" onClick={() => setShowSettings(true)} title="模型配置">
             ⚙️
           </button>
@@ -312,7 +317,7 @@ export default function App() {
 
         {/* Center: Relationship Graph */}
         <main className="graph-area">
-          <RelationshipGraph />
+          <RelationshipGraph onUserClick={() => setShowUserProfile(true)} />
         </main>
 
         {/* Right: Chat / Simulation Panel */}
@@ -384,6 +389,9 @@ export default function App() {
 
       {/* Settings Modal */}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+      {/* User Profile Modal */}
+      {showUserProfile && <UserProfileModal onClose={() => setShowUserProfile(false)} />}
     </div>
   )
 }

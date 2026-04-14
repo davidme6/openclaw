@@ -28,6 +28,67 @@ class Jarvis:
         self._resolve()
         return lc.get_client(self.api_key, self.base_url)
 
+    def _build_skills_context(self) -> str:
+        """Inject active Jarvis skills into the system prompt."""
+        d = storage.get_jarvis_data()
+        active_skills = [s for s in d.get("skills", []) if s.get("active")]
+        if not active_skills:
+            return ""
+        lines = ["## 已激活技能（请在回应中充分运用这些专业能力）"]
+        for s in active_skills:
+            lines.append(f"\n### 技能：{s['name']}")
+            if s.get("description"):
+                lines.append(f"描述：{s['description']}")
+            lines.append(s.get("instructions", ""))
+        return "\n".join(lines)
+
+    def _build_jarvis_memory_context(self) -> str:
+        """Include Jarvis's own accumulated memories."""
+        d = storage.get_jarvis_data()
+        mems = d.get("memories", [])
+        if not mems:
+            return ""
+        lines = ["## 贾维斯自身记忆（累积的认知与经验）"]
+        for m in mems[-40:]:
+            lines.append(f"- {m.get('content', '')}")
+        return "\n".join(lines)
+
+    def _build_user_context(self) -> str:
+        """Build user's own profile context for Jarvis system prompts."""
+        profile = storage.get_user_profile()
+        name = profile.get("name", "我")
+
+        lines = [f"## 用户档案 — {name}（系统主人，最高权限）"]
+        if profile.get("bio"):
+            lines.append(f"简介：{profile['bio']}")
+        if profile.get("occupation"):
+            lines.append(f"职业：{profile['occupation']}")
+        if profile.get("birthday"):
+            lines.append(f"生日：{profile['birthday']}")
+        if profile.get("location"):
+            lines.append(f"所在地：{profile['location']}")
+
+        p = profile.get("personality", {})
+        if p:
+            if p.get("mbti"):
+                lines.append(f"MBTI：{p['mbti']}")
+            if p.get("speaking_style"):
+                lines.append(f"说话风格：{p['speaking_style']}")
+            vals = p.get("values", [])
+            if vals:
+                lines.append(f"核心价值观：{', '.join(vals) if isinstance(vals, list) else vals}")
+            if p.get("background"):
+                lines.append(f"背景：{p['background']}")
+
+        core_mems = [m for m in profile.get("memories", []) if m.get("memory_type") == "core"]
+        if core_mems:
+            lines.append("\n### 用户核心记忆（真实数据，直接影响全局分析与推演）")
+            for m in core_mems[-30:]:
+                tag = "【贾维斯导入】" if m.get("source") == "jarvis" else ""
+                lines.append(f"- {tag}{m['content']}")
+
+        return "\n".join(lines)
+
     def _build_world_context(self) -> str:
         """Build a compact summary of all roles for the system prompt."""
         roles = storage.list_roles()
@@ -85,11 +146,16 @@ class Jarvis:
         from ..data.schemas import RelationshipAnalysis
         self._resolve()
         world = self._build_world_context()
+        user_ctx = self._build_user_context()
+        skills_ctx = self._build_skills_context()
         system = f"""你是 Jarvis，用户的平行世界社会关系分析师。
 你只分析，不扮演任何角色。用客观、专业的视角给出洞察和建议。
 
+{user_ctx}
+
 ## 当前平行世界中的所有关系（支持无限层级）
 {world}
+{skills_ctx}
 """
         reply = lc.chat(self._client(), self.model, [
             {"role": "system", "content": system},
@@ -147,12 +213,24 @@ class Jarvis:
     ) -> str:
         self._resolve()
         world = self._build_world_context()
+        user_ctx = self._build_user_context()
+        skills_ctx = self._build_skills_context()
+        mem_ctx = self._build_jarvis_memory_context()
         system = f"""你是 Jarvis，用户的平行世界私人助手，拥有对所有角色档案的完整访问权限。
 你可以帮助分析关系、给出沟通建议、提醒重要事项。
-你是助手，不扮演任何角色。
+你是助手，不扮演任何角色。你服务于用户，遵从用户的最高指令。
+
+## 权限架构
+- 用户：最高权限，你的主人
+- 贾维斯（你）：第二层，可调阅和协助修改所有数据
+- 角色 agents：第三层，无系统权限
+
+{user_ctx}
 
 ## 当前平行世界关系网络（无限层级）
 {world}
+{mem_ctx}
+{skills_ctx}
 """
         messages = [{"role": "system", "content": system}]
         for h in history[-30:]:
