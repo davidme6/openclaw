@@ -15,6 +15,9 @@ class UpdateProfileRequest(BaseModel):
     occupation: Optional[str] = None
     location: Optional[str] = None
     personality: Optional[dict] = None
+    agent_model: Optional[str] = None
+    agent_system_prompt: Optional[str] = None
+    virtual_me_role_id: Optional[str] = None
 
 
 class AddMemoryRequest(BaseModel):
@@ -46,6 +49,12 @@ def update_profile(req: UpdateProfileRequest):
         profile["location"] = req.location
     if req.personality is not None:
         profile["personality"] = req.personality
+    if req.agent_model is not None:
+        profile["agent_model"] = req.agent_model
+    if req.agent_system_prompt is not None:
+        profile["agent_system_prompt"] = req.agent_system_prompt
+    if req.virtual_me_role_id is not None:
+        profile["virtual_me_role_id"] = req.virtual_me_role_id
     storage.save_user_profile(profile)
     return profile
 

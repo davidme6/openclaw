@@ -239,7 +239,7 @@ export default function RelationshipGraph({ onUserClick }: Props) {
 
   const onConnect = useCallback((c: Connection) => setEdges(eds => addEdge(c, eds)), [])
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_: unknown, node: Node) => {
     if (node.id === 'user') onUserClick?.()
   }, [onUserClick])
 

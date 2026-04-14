@@ -106,6 +106,8 @@ export interface UserProfile {
   // Optional: agent model for "virtual me" simulation
   agent_model?: string
   agent_system_prompt?: string
+  // ID of the RoleAgent created as "virtual me"
+  virtual_me_role_id?: string
   created_at?: string
   updated_at?: string
 }

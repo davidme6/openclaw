@@ -5,8 +5,8 @@
  */
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
-import { userApi } from '../api/client'
-import type { UserProfile, UserMemory } from '../types'
+import { userApi, rolesApi } from '../api/client'
+import type { UserProfile, UserMemory, Role } from '../types'
 
 const MBTI_OPTIONS = [
   'INTJ','INTP','ENTJ','ENTP',
@@ -50,6 +50,12 @@ export default function UserProfileModal({ onClose }: Props) {
     queryFn: userApi.getProfile,
   })
 
+  // Load all roles to look up the virtual me agent
+  const { data: allRoles = [] } = useQuery<Role[]>({
+    queryKey: ['roles'],
+    queryFn: rolesApi.list,
+  })
+
   const [form, setForm] = useState({
     name: '', bio: '', birthday: '', occupation: '', location: '',
     mbti: '', speaking_style: '', values: '', triggers: '', love_language: '', background: '',
@@ -89,6 +95,11 @@ export default function UserProfileModal({ onClose }: Props) {
       setParallelMemories(profile.memories.filter(m => m.memory_type === 'parallel'))
     }
   }, [profile])
+
+  // Find the virtual me agent in the roles list
+  const virtualMeRole = profile?.virtual_me_role_id
+    ? allRoles.find(r => r.id === profile.virtual_me_role_id)
+    : undefined
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -130,6 +141,55 @@ export default function UserProfileModal({ onClose }: Props) {
     onSuccess: (_, id) => {
       setCoreMemories(prev => prev.filter(m => m.id !== id))
       setParallelMemories(prev => prev.filter(m => m.id !== id))
+    },
+  })
+
+  // Create virtual me agent
+  const createVirtualMeMutation = useMutation({
+    mutationFn: async () => {
+      const userName = form.name.trim() || profile?.name || '我'
+      // Build personality fields for the agent
+      const personality: any = {}
+      if (form.mbti) personality.mbti = form.mbti
+      if (form.speaking_style) personality.speaking_style = form.speaking_style
+      if (form.values) personality.values = form.values.split(/[，,、]/).map(s => s.trim()).filter(Boolean)
+      if (form.triggers) personality.triggers = form.triggers.split(/[，,、]/).map(s => s.trim()).filter(Boolean)
+      if (form.love_language) personality.love_language = form.love_language
+      if (form.background) personality.background = form.background
+
+      // Create the role agent
+      const newRole: Role = await rolesApi.create({
+        name: `${userName}（虚拟我）`,
+        relationship_type: 'other',
+        relationship_status: 'active',
+        age: undefined,
+        occupation: form.occupation.trim() || undefined,
+        bio: form.bio.trim() || `这是 ${userName} 的虚拟 agent，用于模拟和推演。`,
+        personality: Object.keys(personality).length > 0 ? personality : undefined,
+        connected_to_user: true,
+      })
+
+      // Link the created role to the user profile
+      await userApi.updateProfile({ virtual_me_role_id: newRole.id })
+      return newRole
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['userProfile'] })
+      qc.invalidateQueries({ queryKey: ['roles'] })
+    },
+  })
+
+  // Delete virtual me agent
+  const deleteVirtualMeMutation = useMutation({
+    mutationFn: async () => {
+      if (profile?.virtual_me_role_id) {
+        await rolesApi.delete(profile.virtual_me_role_id)
+        await userApi.updateProfile({ virtual_me_role_id: '' })
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['userProfile'] })
+      qc.invalidateQueries({ queryKey: ['roles'] })
     },
   })
 
@@ -206,6 +266,9 @@ export default function UserProfileModal({ onClose }: Props) {
               )}
               {t.key === 'parallel' && parallelMemories.length > 0 && (
                 <span className="mem-count">{parallelMemories.length}</span>
+              )}
+              {t.key === 'agent' && virtualMeRole && (
+                <span className="mem-count" style={{ background: '#22c55e' }}>✓</span>
               )}
             </button>
           ))}
@@ -359,19 +422,20 @@ export default function UserProfileModal({ onClose }: Props) {
                 </div>
               )}
 
-              {/* ── 虚拟我（agent 配置）── */}
+              {/* ── 虚拟我（agent 配置 + 创建）── */}
               {tab === 'agent' && (
                 <div className="modal-section">
                   <div className="modal-section-title">
-                    虚拟我配置
+                    虚拟我 Agent
                     <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 8, fontWeight: 400 }}>
                       （第三层权限，与其他角色平等）
                     </span>
                   </div>
                   <div className="memory-desc" style={{ marginBottom: 16 }}>
-                    配置一个 agent 来模拟你，用于测试关系发展。<strong>「虚拟我」与「真实的你」权限完全隔离</strong>，agent 仅负责扮演，不具备任何系统权限。
+                    创建一个 agent 来模拟你，可在左侧面板中对话和推演。<strong>「虚拟我」与「真实的你」权限完全隔离</strong>，agent 仅负责扮演，不具备任何系统权限。
                   </div>
 
+                  {/* Agent model config */}
                   <div className="modal-row">
                     <label>模型（可选）</label>
                     <input className="modal-input" placeholder="例如：claude-sonnet-4-5，不填则使用系统默认"
@@ -380,11 +444,73 @@ export default function UserProfileModal({ onClose }: Props) {
 
                   <div className="modal-row">
                     <label>系统提示词（虚拟我的角色设定）</label>
-                    <textarea className="modal-textarea" rows={6}
+                    <textarea className="modal-textarea" rows={5}
                       placeholder={`你正在扮演 ${form.name || '我'}。\n基于以下信息回应...\n\n（留空则使用自动生成的提示词）`}
                       value={form.agent_system_prompt}
                       onChange={e => set('agent_system_prompt', e.target.value)}
                     />
+                  </div>
+
+                  {/* Virtual me agent status + create/delete */}
+                  <div style={{
+                    marginTop: 20, padding: '14px 16px',
+                    background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+                    borderRadius: 10,
+                  }}>
+                    {virtualMeRole ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                          <span style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: '#6366f133', border: '1.5px solid #6366f1',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#818cf8', fontWeight: 700, fontSize: 14, flexShrink: 0,
+                          }}>
+                            {virtualMeRole.name.charAt(0)}
+                          </span>
+                          <div>
+                            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>
+                              {virtualMeRole.name}
+                            </div>
+                            <div style={{ color: '#22c55e', fontSize: 11, marginTop: 1 }}>
+                              ✓ 虚拟我 Agent 已创建，可在左侧面板中找到并对话
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          style={{
+                            background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
+                            color: '#f87171', borderRadius: 6, padding: '5px 14px',
+                            fontSize: 12, cursor: 'pointer',
+                          }}
+                          onClick={() => {
+                            if (confirm(`确认删除虚拟我 Agent「${virtualMeRole.name}」？所有对话记录也将删除。`)) {
+                              deleteVirtualMeMutation.mutate()
+                            }
+                          }}
+                          disabled={deleteVirtualMeMutation.isPending}
+                        >
+                          {deleteVirtualMeMutation.isPending ? '删除中...' : '删除虚拟我 Agent'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 12 }}>
+                          尚未创建虚拟我 Agent。创建后它将出现在左侧的关系列表中，可以与它对话和进行推演。
+                        </div>
+                        <button
+                          className="modal-confirm-btn"
+                          style={{ width: '100%' }}
+                          onClick={() => createVirtualMeMutation.mutate()}
+                          disabled={createVirtualMeMutation.isPending}
+                        >
+                          {createVirtualMeMutation.isPending ? '创建中...' : '✦ 创建虚拟我 Agent'}
+                        </button>
+                        {createVirtualMeMutation.isError && (
+                          <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>创建失败，请检查后端连接</div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               )}
